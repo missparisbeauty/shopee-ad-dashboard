@@ -1,0 +1,58 @@
+# Python 快取
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# 開發用的 sample 資料 / 測試殘留（不打進 image）
+sample_ad_report.csv
+*.broken
+*.tmp
+
+# 本機開發資料（部署時要重新從 GCS bucket mount）
+ad_reports.json
+adjustments.json
+audiences.json
+competitors.json
+customers.json
+notify_config.json
+profit_config.json
+report_log.json
+rules.json
+shopee_connections.json
+shopee_products.json
+shopee_public_cache.json
+google_trends_cache.json
+snapshots.json
+team.json
+uploads_index.json
+watcher_state.json
+
+# 監看資料夾的 sample 內容（結構由 Dockerfile mkdir 建立）
+watch/
+uploads/
+
+# 文件 / 桌面快捷
+*.md
+!README.md
+*.bat
+*.lnk
+*.zip
+使用說明.txt
+
+# 測試
+tests/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore

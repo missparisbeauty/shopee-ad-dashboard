@@ -1,0 +1,3779 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>蝦皮廣告代操儀表板 — Demo</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="/api.js"></script>
+<style>
+  :root {
+    --bg: #F5F3EE;
+    --surface: #FFFFFF;
+    --surface2: #FAFAF8;
+    --border: #E2DDD6;
+    --text-primary: #1A1714;
+    --text-secondary: #6B6560;
+    --text-muted: #9E9891;
+    --accent: #EE4D2D;          /* 蝦皮橘 */
+    --accent-light: #FF7337;
+    --accent-pale: #FFE8DF;
+    --good: #16A34A;
+    --warn: #D97706;
+    --bad: #DC2626;
+    --info: #2563EB;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Noto Sans TC', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-size: 14px;
+    line-height: 1.5;
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 200px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 24px 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    flex-shrink: 0;
+    overflow-y: auto;
+  }
+  .sidebar .section-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    padding: 14px 24px 6px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 600;
+  }
+  .sidebar h1 {
+    font-size: 16px;
+    font-weight: 700;
+    padding: 0 24px 24px;
+    border-bottom: 1px solid var(--border);
+    color: var(--accent);
+  }
+  .nav { list-style: none; padding: 12px 0; }
+  .nav li {
+    padding: 10px 24px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-weight: 500;
+    border-left: 3px solid transparent;
+    transition: all .15s;
+  }
+  .nav li:hover { background: var(--surface2); color: var(--text-primary); }
+  .nav li.active {
+    background: var(--accent-pale);
+    color: var(--accent);
+    border-left-color: var(--accent);
+  }
+
+  /* ── Main ── */
+  .main {
+    flex: 1;
+    padding: 32px 40px;
+    overflow-x: hidden;
+  }
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+  .page-title { font-size: 22px; font-weight: 700; }
+  .page-sub { color: var(--text-muted); font-size: 13px; margin-top: 4px; }
+
+  .seg {
+    display: inline-flex;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .seg button {
+    padding: 6px 14px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+  .seg button.active { background: var(--accent); color: #fff; }
+
+  /* ── KPI ── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+  }
+  .kpi-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+  .kpi-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 24px;
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+  .kpi-meta { font-size: 12px; color: var(--text-secondary); }
+  .kpi-meta .target { color: var(--text-muted); }
+  .delta-up { color: var(--good); }
+  .delta-down { color: var(--bad); }
+
+  /* ── Table ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .card-head {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .card-title { font-size: 15px; font-weight: 700; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td {
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  th {
+    background: var(--surface2);
+    font-weight: 500;
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+  }
+  tr:last-child td { border-bottom: none; }
+  td.num { font-family: 'DM Mono', monospace; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .badge-own { background: #DBEAFE; color: #1E40AF; }
+  .badge-client { background: #FEF3C7; color: #92400E; }
+  .roas-good { color: var(--good); font-weight: 600; }
+  .roas-warn { color: var(--warn); font-weight: 600; }
+  .roas-bad { color: var(--bad); font-weight: 600; }
+
+  /* ── Heatmap ── */
+  .heatmap {
+    display: grid;
+    grid-template-columns: 60px repeat(24, 1fr);
+    gap: 2px;
+    margin-top: 16px;
+  }
+  .heatmap .label {
+    font-size: 11px;
+    color: var(--text-muted);
+    padding: 4px;
+    text-align: right;
+  }
+  .heatmap .cell {
+    aspect-ratio: 1;
+    border-radius: 3px;
+    background: #F0EBE5;
+    cursor: pointer;
+    transition: transform .1s;
+  }
+  .heatmap .cell:hover { transform: scale(1.3); z-index: 2; position: relative; }
+  .heatmap .cell.l1 { background: #FFE0D2; }
+  .heatmap .cell.l2 { background: #FFB68F; }
+  .heatmap .cell.l3 { background: #FF7337; }
+  .heatmap .cell.l4 { background: #EE4D2D; }
+  .heatmap .cell.peak { box-shadow: 0 0 0 2px var(--accent); }
+
+  .legend {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .legend-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    display: inline-block;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+
+  /* ── Calendar ── */
+  .events-list { padding: 8px 0; }
+  .event-row {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: 60px 1fr auto;
+    gap: 16px;
+    align-items: center;
+  }
+  .event-row:last-child { border-bottom: none; }
+  .event-countdown {
+    font-family: 'DM Mono', monospace;
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--accent);
+  }
+  .event-name { font-weight: 500; }
+  .event-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .event-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    margin-right: 4px;
+  }
+  .tag-big { background: #FEE2E2; color: #991B1B; }
+  .tag-small { background: #E0F2FE; color: #075985; }
+  .tag-tip { background: #FEF3C7; color: #92400E; }
+
+  /* ── AI cards ── */
+  .ai-toolbar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .chip {
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+    color: var(--text-secondary);
+  }
+  .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .ai-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px;
+  }
+  .ai-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+  }
+  .ai-type {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    background: var(--accent-pale);
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .ai-title { font-weight: 700; margin-bottom: 6px; }
+  .ai-reason { color: var(--text-secondary); font-size: 13px; margin-bottom: 12px; }
+  .ai-impact {
+    background: var(--surface2);
+    border-radius: 6px;
+    padding: 10px;
+    font-size: 12px;
+    margin-bottom: 12px;
+  }
+  .ai-impact-row { display: flex; justify-content: space-between; margin: 2px 0; }
+  .ai-impact .k { color: var(--text-muted); }
+  .ai-impact .v { font-family: 'DM Mono', monospace; font-weight: 500; }
+  .ai-actions { display: flex; gap: 8px; }
+  .btn {
+    flex: 1;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-primary:hover { background: var(--accent-light); }
+
+  .bulk-bar {
+    background: #FEF3C7;
+    border: 1px solid #FCD34D;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+  }
+
+  /* ── Sparkline ── */
+  .spark { display: inline-block; vertical-align: middle; }
+  .trend-up { color: var(--good); font-weight: 600; }
+  .trend-down { color: var(--bad); font-weight: 600; }
+  .trend-flat { color: var(--text-muted); }
+
+  /* ── Before/After ── */
+  .ba-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 12px;
+  }
+  .ba-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 14px;
+  }
+  .ba-product { font-weight: 600; margin-bottom: 4px; }
+  .ba-shop { font-size: 12px; color: var(--text-muted); }
+  .ba-action {
+    background: var(--accent-pale);
+    color: var(--accent);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .ba-grid {
+    display: grid;
+    grid-template-columns: 1fr 40px 1fr 1fr;
+    gap: 12px;
+    align-items: center;
+  }
+  .ba-col {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .ba-col-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+  .ba-col-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    margin: 3px 0;
+  }
+  .ba-col-row .k { color: var(--text-secondary); }
+  .ba-col-row .v { font-family: 'DM Mono', monospace; font-weight: 500; }
+  .ba-arrow {
+    text-align: center;
+    color: var(--accent);
+    font-size: 22px;
+  }
+  .ba-lift {
+    background: linear-gradient(135deg, #FFF5F0, #FFE8DF);
+    border: 1px solid var(--accent-light);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .ba-lift-row {
+    display: flex;
+    justify-content: space-between;
+    margin: 3px 0;
+    font-size: 13px;
+  }
+  .ba-lift-row .v { font-family: 'DM Mono', monospace; font-weight: 600; color: var(--accent); }
+
+  /* ── Action checklist ── */
+  .checklist {
+    list-style: none;
+    padding: 8px 0;
+  }
+  .checklist li {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .checklist li:last-child { border-bottom: none; }
+  .check-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--accent-pale);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-weight: 700;
+    font-size: 13px;
+  }
+  .check-body { flex: 1; }
+  .check-title { font-weight: 500; margin-bottom: 2px; }
+  .check-desc { font-size: 12px; color: var(--text-secondary); }
+  .check-freq {
+    font-size: 11px;
+    background: var(--surface2);
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: var(--text-muted);
+    margin-left: 4px;
+  }
+
+  /* ── Page switching ── */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── Section spacing ── */
+  .section { margin-bottom: 32px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  /* ── Snapshot section ── */
+  .snap-actions { display:flex; gap:8px; align-items:center; }
+  .snap-toast {
+    position:fixed; bottom:24px; right:24px;
+    background:var(--text-primary); color:#fff;
+    padding:12px 20px; border-radius:8px;
+    font-size:13px; z-index:1000;
+    opacity:0; transition:opacity .2s;
+    pointer-events:none;
+  }
+  .snap-toast.show { opacity:1; }
+
+  /* ── Modal ── */
+  .modal-mask {
+    position:fixed; inset:0;
+    background:rgba(0,0,0,0.5);
+    display:none;
+    align-items:center; justify-content:center;
+    z-index:100;
+  }
+  .modal-mask.show { display:flex; }
+  .modal {
+    background:var(--surface);
+    border-radius:12px;
+    width:520px; max-width:92vw;
+    max-height:90vh; overflow:auto;
+    box-shadow:0 20px 60px rgba(0,0,0,0.3);
+  }
+  .modal-head {
+    padding:18px 24px;
+    border-bottom:1px solid var(--border);
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .modal-title { font-size:16px; font-weight:700; }
+  .modal-close {
+    background:none; border:none; font-size:22px;
+    cursor:pointer; color:var(--text-muted);
+  }
+  .modal-body { padding:20px 24px; }
+  .modal-foot {
+    padding:14px 24px;
+    border-top:1px solid var(--border);
+    display:flex; gap:8px; justify-content:flex-end;
+  }
+  .form-row { margin-bottom:14px; }
+  .form-row label {
+    display:block; font-size:12px;
+    color:var(--text-secondary); margin-bottom:6px;
+    font-weight:500;
+  }
+  .form-row input, .form-row select, .form-row textarea {
+    width:100%; padding:8px 12px;
+    border:1px solid var(--border); border-radius:6px;
+    font-size:14px; font-family:inherit;
+    background:var(--surface);
+  }
+  .form-row input:focus, .form-row select:focus, .form-row textarea:focus {
+    outline:none; border-color:var(--accent);
+  }
+  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .info-box {
+    background:var(--surface2);
+    border-radius:6px;
+    padding:10px 12px;
+    font-size:12px;
+    color:var(--text-secondary);
+    margin-bottom:14px;
+  }
+  .info-box .v { font-family:'DM Mono',monospace; font-weight:500; color:var(--text-primary); }
+
+  /* ── Drop zone ── */
+  .dropzone {
+    border:2px dashed var(--border);
+    border-radius:10px;
+    padding:40px 20px;
+    text-align:center;
+    cursor:pointer;
+    transition:all .15s;
+    background:var(--surface2);
+  }
+  .dropzone:hover, .dropzone.drag {
+    border-color:var(--accent);
+    background:var(--accent-pale);
+  }
+  .dropzone-hint { color:var(--text-muted); font-size:13px; margin-top:6px; }
+  .stat-cell { padding:8px 10px; background:#F8FAFC; border:1px solid var(--border); border-radius:6px; }
+  .stat-cell .stat-label { font-size:11px; color:var(--text-muted); margin-bottom:2px; }
+  .stat-cell .stat-value { font-size:15px; font-weight:600; color:var(--text-primary); }
+
+  /* ── Connection card ── */
+  .conn-card {
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:14px 16px;
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:8px;
+  }
+  .conn-card .info { flex:1; }
+  .conn-card .name { font-weight:500; margin-bottom:2px; }
+  .conn-card .meta { font-size:12px; color:var(--text-muted); }
+  .mock-tag {
+    background:#FEF3C7; color:#92400E;
+    padding:2px 8px; border-radius:4px;
+    font-size:11px; font-weight:500;
+    margin-left:6px;
+  }
+
+  /* ── Print (給 Ctrl+P 存 PDF 用) ── */
+  @media print {
+    .sidebar, .seg, .ai-toolbar, .bulk-bar, .snap-actions, button { display:none !important; }
+    .main { padding:16px !important; }
+    .page { display:block !important; page-break-after:always; }
+    body { background:#fff !important; }
+    .card, .ai-card, .ba-card { box-shadow:none !important; border:1px solid #ddd !important; }
+    .heatmap .cell:hover { transform:none !important; }
+  }
+
+  /* ── 月報專屬列印模式（body 加 .print-report-only 時觸發） ── */
+  body.print-report-only > * { display:none !important; }
+  body.print-report-only #report-modal { display:flex !important; position:static !important; background:#fff !important; }
+  body.print-report-only #report-modal .modal-mask { display:none !important; }
+  @media print {
+    body.print-report-only { background:#fff !important; }
+    body.print-report-only > * { display:none !important; }
+    body.print-report-only #report-modal {
+      display:block !important;
+      position:static !important;
+      background:#fff !important;
+      width:100% !important; height:auto !important;
+      padding:0 !important;
+    }
+    body.print-report-only #report-modal .modal-card {
+      box-shadow:none !important;
+      max-width:100% !important;
+      max-height:none !important;
+      border:none !important;
+      border-radius:0 !important;
+      padding:0 !important;
+    }
+    body.print-report-only #report-modal .modal-head { border-bottom:2px solid #EE4D2D !important; padding:0 0 8px !important; }
+    body.print-report-only #report-modal .modal-foot { display:none !important; }
+    body.print-report-only #report-modal .modal-close { display:none !important; }
+    body.print-report-only #report-modal table { width:100% !important; page-break-inside:avoid; }
+    body.print-report-only #report-modal .kpi { border:1px solid #ddd !important; box-shadow:none !important; }
+    body.print-report-only #report-modal h2 { color:#EE4D2D !important; }
+    @page { size: A4; margin: 12mm 14mm 14mm; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ─────────── Sidebar ─────────── -->
+<aside class="sidebar">
+  <h1>🛒 蝦皮代操</h1>
+  <ul class="nav">
+    <div class="section-label">總覽</div>
+    <li class="active" data-page="kpi">KPI + 真實獲利</li>
+    <li data-page="accounts">帳號總表</li>
+    <li data-page="hours">高效時段</li>
+    <li data-page="calendar">活動行事曆</li>
+
+    <div class="section-label">優化工具</div>
+    <li data-page="ai">AI 調整建議</li>
+    <li data-page="products">商品優化追蹤</li>
+    <li data-page="health">商品健康度</li>
+    <li data-page="rules">預算與自動規則</li>
+
+    <div class="section-label">流量策略</div>
+    <li data-page="keywords">關鍵字研究</li>
+    <li data-page="audience">受眾 + 素材</li>
+    <li data-page="competitor">競品監控</li>
+
+    <div class="section-label">客戶與運營</div>
+    <li data-page="customers">客戶 CRM + 月報</li>
+    <li data-page="team">團隊 + LINE 通知</li>
+    <li data-page="multiplatform">跨平台整合</li>
+    <li data-page="settings">整合與設定</li>
+  </ul>
+</aside>
+
+<!-- ─────────── Main ─────────── -->
+<main class="main">
+
+  <!-- 全域客戶切換器（頂端 sticky） -->
+  <div id="customer-switcher" style="position:sticky;top:0;z-index:50;background:#fff;border-bottom:1px solid var(--border);padding:10px 24px;display:flex;align-items:center;gap:12px;margin:-24px -24px 16px">
+    <span style="font-weight:600;color:var(--text-secondary);font-size:13px">👤 目前檢視：</span>
+    <select id="customer-select" style="padding:6px 10px;font-size:13px;border:1px solid var(--border);border-radius:6px;min-width:240px" onchange="onCustomerChange(this.value)">
+      <option value="">所有客戶（合併）</option>
+    </select>
+    <span id="customer-info" style="font-size:11px;color:var(--text-muted)"></span>
+    <span style="margin-left:auto;font-size:11px;color:var(--text-muted)" id="cust-data-status"></span>
+  </div>
+
+  <!-- Page 1: KPI -->
+  <section class="page active" id="page-kpi">
+    <div class="page-header">
+      <div>
+        <div class="page-title">KPI 總覽</div>
+        <div class="page-sub">所有帳號彙總 · 最後更新 2026-05-03 09:00</div>
+      </div>
+      <div class="seg" id="period-seg">
+        <button>昨日</button>
+        <button class="active">本週</button>
+        <button>本月</button>
+      </div>
+    </div>
+
+    <div class="kpi-grid" id="kpi-cards">
+      <div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--text-muted)">載入中…</div>
+    </div>
+
+    <div style="margin:24px 0 12px;font-size:13px;font-weight:600;color:var(--text-secondary)">
+      💰 真實獲利分析（扣完成本、運費、平台抽成、刷卡費後）
+    </div>
+    <div class="kpi-grid" id="profit-cards" style="grid-template-columns:repeat(4,1fr)">
+      <div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--text-muted)">載入中…</div>
+    </div>
+
+    <!-- AI 顧問建議 -->
+    <div class="card section">
+      <div class="card-head">
+        <div>
+          <div class="card-title">🤖 AI 廣告顧問建議 <span id="ai-mode-badge" style="font-size:11px;color:var(--text-muted);margin-left:8px"></span></div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:4px">把目前儀表板數據（KPI + 真實獲利 + Top 商品 + 規則觸發）丟給 AI 分析，產生診斷+本週優化計畫</div>
+        </div>
+        <button class="btn btn-primary" onclick="onGenerateAiInsights()" style="flex:0;padding:6px 14px">✨ 產生建議</button>
+      </div>
+      <div id="ai-insights-box" style="padding:16px 20px;color:var(--text-muted);font-size:13px">
+        點上方「✨ 產生建議」按鈕 — AI 會根據目前選的客戶分析數據
+      </div>
+    </div>
+
+    <!-- 商品成本設定（profit_config 編輯） -->
+    <div class="card section">
+      <div class="card-head" style="cursor:pointer" onclick="togglePcfgPanel()">
+        <div>
+          <div class="card-title">⚙️ 商品成本設定 <span id="pcfg-badge" style="font-size:11px;color:var(--text-muted);margin-left:8px"></span></div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:4px">調整每個商品的成本/運費 → 即時影響上方真實獲利數字</div>
+        </div>
+        <div style="flex:0">
+          <span id="pcfg-toggle" style="font-size:18px;color:var(--text-muted)">▼</span>
+        </div>
+      </div>
+      <div id="pcfg-panel" style="display:none;padding:0 20px 20px"></div>
+    </div>
+
+    <div class="card section">
+      <div class="card-head"><div class="card-title">花費 / 營收趨勢（近 7 天）</div></div>
+      <div style="padding:20px;height:280px"><canvas id="trend-chart"></canvas></div>
+    </div>
+
+    <!-- 每週快照 -->
+    <div class="card section">
+      <div class="card-head">
+        <div>
+          <div class="card-title">📦 每週投廣數據快照</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:4px">每週固定下載 CSV 存檔，作為未來投廣優化決策的歷史依據</div>
+        </div>
+        <div class="snap-actions">
+          <button class="btn" onclick="window.print()" style="flex:0;padding:6px 14px">🖨 列印 / PDF</button>
+          <button class="btn btn-primary" onclick="onTakeSnapshot(this)" style="flex:0;padding:6px 14px">📸 建立本週快照</button>
+        </div>
+      </div>
+      <div id="snap-list"><div style="padding:24px;text-align:center;color:var(--text-muted)">載入中…</div></div>
+    </div>
+
+    <!-- 週對週趨勢 -->
+    <div class="card">
+      <div class="card-head"><div class="card-title">📈 週對週趨勢（依快照）</div></div>
+      <div style="padding:20px;height:240px"><canvas id="snap-chart"></canvas></div>
+    </div>
+  </section>
+
+  <!-- Page 2: Accounts -->
+  <section class="page" id="page-accounts">
+    <div class="page-header">
+      <div>
+        <div class="page-title">帳號總表</div>
+        <div class="page-sub">共 8 個帳號 · 自有 3 / 客戶 5</div>
+      </div>
+    </div>
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>類型</th><th>店家名稱</th>
+            <th>花費</th><th>營收</th><th>ROAS</th>
+            <th>預算使用率</th><th>月結算日</th><th>狀態</th>
+          </tr>
+        </thead>
+        <tbody id="acc-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Page 3: Hours -->
+  <section class="page" id="page-hours">
+    <div class="page-header">
+      <div>
+        <div class="page-title">高效時段視覺化 <span style="font-size:11px;background:#94A3B8;color:#fff;padding:2px 8px;border-radius:8px;margin-left:6px">○ Mock 數據</span></div>
+        <div class="page-sub">7天 × 24小時熱力圖 · 蝦皮匯出 CSV 沒「小時」維度，目前是示範資料；之後接 Shopee Open API 訂單明細才能用真實</div>
+      </div>
+      <div class="seg">
+        <button class="active">全部</button>
+        <button>3C</button>
+        <button>美妝</button>
+        <button>食品</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">某店家 · 過去 7 天 ROAS 熱力圖</div></div>
+      <div style="padding:20px">
+        <div class="heatmap" id="heatmap"></div>
+        <div class="legend">
+          <span><span class="legend-dot" style="background:#F0EBE5"></span>低</span>
+          <span><span class="legend-dot" style="background:#FFE0D2"></span></span>
+          <span><span class="legend-dot" style="background:#FFB68F"></span></span>
+          <span><span class="legend-dot" style="background:#FF7337"></span></span>
+          <span><span class="legend-dot" style="background:#EE4D2D"></span>高</span>
+          <span style="margin-left:16px">外框 = 蝦皮平台流量高峰</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Page 4: Calendar -->
+  <section class="page" id="page-calendar">
+    <div class="page-header">
+      <div>
+        <div class="page-title">蝦皮活動行事曆</div>
+        <div class="page-sub">最近上傳 / 規則觸發紀錄 <span style="font-size:11px;background:#16A34A;color:#fff;padding:2px 8px;border-radius:8px;margin-left:6px">● 真實資料</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="events-list" id="events"></div>
+    </div>
+  </section>
+
+  <!-- Page 5: AI -->
+  <section class="page" id="page-ai">
+    <div class="page-header">
+      <div>
+        <div class="page-title">AI 調整建議</div>
+        <div class="page-sub">規則式 AI 建議 — 從真實 CSV 商品逐個產生具體可執行建議 <span style="font-size:11px;background:#16A34A;color:#fff;padding:2px 8px;border-radius:8px;margin-left:6px">● 真實資料</span><br><span style="color:#2563EB;font-size:11px">💡 想要更深入分析（含真實獲利／淨利）請用首頁的「🤖 AI 廣告顧問建議」（吃 Claude API）</span></div>
+      </div>
+    </div>
+    <div class="bulk-bar">
+      <span>⚠️ 共 <strong id="ai-count">6</strong> 筆建議待確認</span>
+      <button class="btn btn-primary" style="flex:0">一鍵全部確認</button>
+    </div>
+    <div class="ai-toolbar" id="ai-filter">
+      <button class="chip active" data-type="all">全部</button>
+      <button class="chip" data-type="出價">出價</button>
+      <button class="chip" data-type="預算">預算</button>
+      <button class="chip" data-type="關鍵字">關鍵字</button>
+      <button class="chip" data-type="排程">排程</button>
+    </div>
+    <div class="ai-grid" id="ai-cards"></div>
+  </section>
+
+  <!-- Page: Product Optimization -->
+  <section class="page" id="page-products">
+    <div class="page-header">
+      <div>
+        <div class="page-title">商品優化追蹤</div>
+        <div class="page-sub">追蹤點擊 / 加購上升商品 → 提供加碼建議 → 對比優化前後 → 持續精進</div>
+      </div>
+      <div class="seg">
+        <button class="active">全部賣場</button>
+        <button>自家3C</button>
+        <button>自家美妝</button>
+        <button>客戶</button>
+      </div>
+    </div>
+
+    <!-- Section A: 上升中商品 -->
+    <div class="section">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">📈 上升中商品 — 候選加碼名單</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">點擊 / 加購近 7 天 vs 前 7 天，按綜合上升分數排序</div>
+          </div>
+          <button class="btn btn-primary" style="flex:0;padding:6px 14px">一鍵套用全部建議</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>賣場</th><th>商品</th>
+              <th>點擊趨勢</th><th>加購趨勢</th>
+              <th>轉換率</th><th>目前廣告</th>
+              <th>AI 建議</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="rising-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Section B: 優化前後 -->
+    <div class="section">
+      <div class="card-head" style="background:none;border:none;padding:0 0 12px">
+        <div>
+          <div class="card-title">🔄 已加碼商品 — 優化前後對比</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:4px">調整後 7 天數據 vs 調整前 7 天</div>
+        </div>
+      </div>
+      <div id="ba-list"></div>
+    </div>
+
+    <!-- Section C: 持續優化建議 -->
+    <div class="section">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">🎯 持續提升投廣績效 — 行動清單</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">代操業者每週 / 每月 / 每季應做的優化動作</div>
+          </div>
+        </div>
+        <ul class="checklist" id="action-list"></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Page 6: Competitor -->
+  <section class="page" id="page-competitor">
+    <div class="page-header">
+      <div>
+        <div class="page-title">競品監控</div>
+        <div class="page-sub">蝦皮搜尋排名 · 競品商品 · 同類目價格分布</div>
+      </div>
+    </div>
+
+    <!-- 蝦皮搜尋（v4 公開 API）— 已驗證被擋 -->
+    <div class="section">
+      <div class="card" style="border-left:4px solid #94A3B8">
+        <div class="card-head">
+          <div>
+            <div class="card-title">🔎 蝦皮搜尋競品 <span style="font-size:11px;background:#94A3B8;color:#fff;padding:2px 8px;border-radius:8px;margin-left:6px">○ 暫不可用</span></div>
+            <div style="font-size:12px;color:#7C2D12;margin-top:4px">
+              已測試：純 HTTP / cloudscraper 都被蝦皮擋（HTTP 403）。
+              <strong>解法：</strong>申請 <a href="https://open.shopee.com" target="_blank">Shopee Open API Partner</a>（5-10 工作天審核），拿到後設環境變數 <code>SHOPEE_PARTNER_ID</code> 即可。
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">🔍 主要關鍵字排名追蹤 <span style="font-size:11px;background:#94A3B8;color:#fff;padding:2px 8px;border-radius:8px;margin-left:6px">○ Mock</span></div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">7 天排名變化（數字越小越靠前）· 競品出價作為加碼參考</div>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr><th>關鍵字</th><th>我方排名</th><th>7 日趨勢</th><th>主要競品</th><th>競品出價</th><th>月搜尋量</th><th></th></tr>
+          </thead>
+          <tbody id="comp-kw-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">💰 同類目價格分布</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">競品 vs 我方在各價格區間的商品數，找出定價空缺</div>
+          </div>
+          <div class="seg" id="cat-seg">
+            <button class="active" data-cat="3C">3C</button>
+            <button data-cat="美妝">美妝</button>
+            <button data-cat="食品">食品</button>
+          </div>
+        </div>
+        <div style="padding:20px;height:280px"><canvas id="price-chart"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Page: 商品健康度 -->
+  <section class="page" id="page-health">
+    <div class="page-header">
+      <div>
+        <div class="page-title">商品健康度評分</div>
+        <div class="page-sub">評分 + 庫存 + 價格競爭力 + 銷量 + 評論數綜合評分 · 分數低的商品不該繼續燒廣告</div>
+      </div>
+    </div>
+    <div id="health-source-badge" style="margin-bottom:8px"></div>
+    <div class="card">
+      <div class="card-head">
+        <div style="font-size:12px;color:#7C2D12">
+          ⚠️ 從蝦皮抓真實評分／庫存目前不可用（v4 公開 API 被擋）。
+          目前評分／庫存／價競力為 <strong>估算值</strong>。
+          <a href="https://open.shopee.com" target="_blank" style="color:#2563EB">申請 Shopee Open API</a> 後可取得真實。
+        </div>
+      </div>
+      <div id="health-sync-result" style="padding:0 20px"></div>
+      <table>
+        <thead>
+          <tr><th>商品</th><th>賣場</th><th>評分</th><th>評論數</th><th>庫存</th><th>價競力</th><th>30 天銷量</th><th>健康度</th><th>建議</th></tr>
+        </thead>
+        <tbody id="health-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Page: 預算與自動規則 -->
+  <section class="page" id="page-rules">
+    <div class="page-header">
+      <div>
+        <div class="page-title">預算與自動規則</div>
+        <div class="page-sub">即時預算燒爆預警 · 多條件自動規則引擎</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">⚡ 即時預算燒爆預警</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">每帳號預測幾點預算會燒完 · 紅色 = 中午前燒爆，下午晚上將無曝光</div>
+          </div>
+          <button class="btn" onclick="loadBudgetPacing()" style="flex:0;padding:6px 14px">🔄 重新計算</button>
+        </div>
+        <div id="budget-source-badge" style="padding:8px 20px 0"></div>
+        <div id="budget-alerts-box" style="padding:0 20px"></div>
+        <table>
+          <thead>
+            <tr><th>店家</th><th>每日預算</th><th>已燒</th><th>燒爆速率</th><th>預測燒完時間</th><th>狀態</th></tr>
+          </thead>
+          <tbody id="pacing-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">🤖 自動規則引擎</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">符合條件自動觸發動作 · 例：連續 3 天 ROAS &lt; 1.5 → 自動暫停廣告</div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn" onclick="onPreviewRules()" style="flex:0;padding:6px 14px">🔍 試算（dry-run）</button>
+            <button class="btn" onclick="onRunRules()" style="flex:0;padding:6px 14px">▶ 立即執行</button>
+            <button class="btn btn-primary" onclick="openRuleModal()" style="flex:0;padding:6px 14px">+ 新增規則</button>
+          </div>
+        </div>
+        <div id="rules-list" style="padding:8px 0"></div>
+        <div id="rules-trigger-result" style="padding:0 20px 16px"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Page: 關鍵字研究 -->
+  <section class="page" id="page-keywords">
+    <div class="page-header">
+      <div>
+        <div class="page-title">關鍵字研究</div>
+        <div class="page-sub">Google Trends 今日熱搜 + 關鍵字探索 <span style="font-size:11px;background:#16A34A;color:#fff;padding:2px 8px;border-radius:8px;margin-left:6px">● 真實（Google Trends RSS）</span></div>
+      </div>
+    </div>
+
+    <!-- Google Trends 今日熱搜 -->
+    <div class="section">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">🔥 今日熱搜（Google Trends 台灣）</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">每 6 小時自動 cache · 找出當下最熱關鍵字</div>
+          </div>
+          <button class="btn" onclick="loadTrendsDaily()" style="flex:0;padding:6px 14px">🔄 重新整理</button>
+        </div>
+        <div id="trends-daily" style="padding:16px 20px"><div style="color:var(--text-muted)">載入中…</div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">🔍 關鍵字探索工具 <span style="font-size:11px;background:#94A3B8;color:#fff;padding:2px 8px;border-radius:8px;margin-left:6px">○ Mock</span></div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">輸入種子詞 → 找出長尾、相關詞、藍海機會</div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="kw-seed" placeholder="輸入種子詞..." value="充電器" style="padding:6px 12px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;width:200px">
+            <button class="btn btn-primary" onclick="onExploreKw()" style="flex:0;padding:6px 14px">探索</button>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr><th>關鍵字</th><th>月搜尋量</th><th>競爭度</th><th>建議 CPC</th><th>我方排名</th><th>搜尋趨勢</th><th></th></tr>
+          </thead>
+          <tbody id="kw-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <div class="card-head"><div class="card-title">📚 關鍵字分組</div></div>
+        <div id="kw-groups" style="padding:20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <div class="card-head"><div class="card-title">🗓️ 季節性關鍵字日曆</div></div>
+        <div id="kw-seasonal" style="padding:8px 0"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Page: 受眾 + 素材 -->
+  <section class="page" id="page-audience">
+    <div class="page-header">
+      <div>
+        <div class="page-title">受眾 + 素材</div>
+        <div class="page-sub">再行銷受眾包 · AI 廣告文案生成</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">👥 受眾包</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">再行銷給「加購未結帳」「瀏覽未加購」等高轉換族群</div>
+          </div>
+          <button class="btn btn-primary" onclick="openAudienceModal()" style="flex:0;padding:6px 14px">+ 新增受眾</button>
+        </div>
+        <div id="audience-list" style="padding:8px 0"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">✨ AI 廣告文案生成</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">輸入商品 + 風格 → 自動產出 3 組文案候選</div>
+          </div>
+        </div>
+        <div style="padding:20px">
+          <div class="form-grid" style="grid-template-columns:1fr 200px auto">
+            <div class="form-row" style="margin:0">
+              <label>商品名稱</label>
+              <input type="text" id="copy-product" placeholder="例：寶寶副食品調理組">
+            </div>
+            <div class="form-row" style="margin:0">
+              <label>風格</label>
+              <select id="copy-style">
+                <option value="促銷">促銷檔期</option>
+                <option value="專業">專業推薦</option>
+                <option value="情感">情感故事</option>
+              </select>
+            </div>
+            <div style="display:flex;align-items:flex-end">
+              <button class="btn btn-primary" onclick="onGenerateCopy()" style="padding:8px 18px">生成</button>
+            </div>
+          </div>
+          <div id="copy-result" style="margin-top:16px"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Page: 客戶 CRM + 月報 -->
+  <section class="page" id="page-customers">
+    <div class="page-header">
+      <div>
+        <div class="page-title">客戶 CRM + 月報</div>
+        <div class="page-sub">客戶資料 · 合約期 · 月報自動產出與寄送</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <div class="card-head">
+          <div><div class="card-title">👤 客戶清單</div></div>
+          <button class="btn btn-primary" onclick="openCustomerModal()" style="flex:0;padding:6px 14px">+ 新增客戶</button>
+        </div>
+        <div id="customer-list" style="padding:8px 0"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <div class="card-head"><div class="card-title">📨 月報寄送紀錄</div></div>
+        <div id="report-log" style="padding:8px 0"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Page: 團隊 + LINE 通知 -->
+  <section class="page" id="page-team">
+    <div class="page-header">
+      <div>
+        <div class="page-title">團隊 + LINE 通知</div>
+        <div class="page-sub">操作員管理 · 即時推播設定</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <div class="card-head">
+          <div><div class="card-title">👥 團隊成員</div></div>
+          <button class="btn btn-primary" onclick="openTeamModal()" style="flex:0;padding:6px 14px">+ 新增成員</button>
+        </div>
+        <div id="team-list" style="padding:8px 0"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">📱 LINE Notify 即時推播</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">代操不會整天盯儀表板 · 重要事件直接推到 LINE</div>
+          </div>
+          <button class="btn" onclick="onTestNotify()" style="flex:0;padding:6px 14px">📨 送測試訊息</button>
+        </div>
+        <div style="padding:20px">
+          <div class="form-row">
+            <label>LINE Notify Token</label>
+            <input type="text" id="line-token" placeholder="從 https://notify-bot.line.me 申請後貼上">
+            <div style="font-size:11px;color:var(--text-muted);margin-top:4px">申請流程：登入 → 個人頁面 → 發行存取權杖（指定通話對象 → 取得 token）</div>
+          </div>
+          <div class="form-row">
+            <label>推播事件</label>
+            <div id="notify-events" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px"></div>
+          </div>
+          <button class="btn btn-primary" onclick="saveNotifyConfig()" style="flex:0;padding:8px 18px">儲存設定</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Page: 跨平台 -->
+  <section class="page" id="page-multiplatform">
+    <div class="page-header">
+      <div>
+        <div class="page-title">跨平台整合</div>
+        <div class="page-sub">蝦皮 / Momo / PChome 三平台 ROAS 對比 · 找出最划算的廣告平台</div>
+      </div>
+    </div>
+    <div class="card">
+      <table>
+        <thead>
+          <tr><th>店家</th><th>蝦皮</th><th>Momo</th><th>PChome</th><th>三平台合計</th></tr>
+        </thead>
+        <tbody id="multi-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Page: 整合與設定 -->
+  <section class="page" id="page-settings">
+    <div class="page-header">
+      <div>
+        <div class="page-title">整合與設定</div>
+        <div class="page-sub">綁定蝦皮店家 · 上傳廣告報表 · 管理競品監控對象</div>
+      </div>
+    </div>
+
+    <!-- A. OAuth 綁定 -->
+    <div class="section">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">🔗 蝦皮店家綁定（OAuth 授權）</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">點擊產生授權連結 → 寄給賣家 → 賣家登入蝦皮同意 → 自動回填到此</div>
+          </div>
+          <button class="btn btn-primary" onclick="onConnectShop()" style="flex:0;padding:6px 14px">+ 綁定新店家</button>
+        </div>
+        <div id="conn-list" style="padding:16px"><div style="text-align:center;color:var(--text-muted);padding:24px">載入中…</div></div>
+      </div>
+    </div>
+
+    <!-- B. CSV 上傳 -->
+    <div class="section">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">📤 廣告報表 CSV 上傳</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">每週從賣家中心匯出廣告報表 → 拖曳到下方</div>
+          </div>
+        </div>
+        <div style="padding:20px">
+          <div class="form-row">
+            <label>店家</label>
+            <select id="upload-shop">
+              <option value="自家3C旗艦店">自家3C旗艦店</option>
+              <option value="自家美妝專櫃">自家美妝專櫃</option>
+              <option value="自家居家生活">自家居家生活</option>
+              <option value="A 食品行">A 食品行</option>
+              <option value="B 服飾批發">B 服飾批發</option>
+              <option value="C 寵物用品">C 寵物用品</option>
+              <option value="D 母嬰用品">D 母嬰用品</option>
+              <option value="E 戶外運動">E 戶外運動</option>
+            </select>
+          </div>
+          <div class="dropzone" id="dropzone">
+            <div style="font-size:32px">📄</div>
+            <div style="font-weight:500;margin-top:6px">拖曳 CSV 到此 或 點擊選檔</div>
+            <div class="dropzone-hint">支援 UTF-8 / BIG5 編碼，蝦皮賣家中心匯出格式</div>
+            <input type="file" id="file-input" accept=".csv" style="display:none">
+          </div>
+          <div id="upload-result" style="margin-top:14px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- B0. Shopee Open API 設定狀態 -->
+    <div class="section">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">🛒 Shopee Open API 串接</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">補商品 rating / stock / reviews（CSV 沒有的） · 未設 partner 時 mock 模式</div>
+          </div>
+        </div>
+        <div id="shopee-status-box" style="padding:14px 20px"><div style="color:var(--text-muted)">載入中…</div></div>
+      </div>
+    </div>
+
+    <!-- B1. SendGrid 設定狀態 -->
+    <div class="section">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">✉️ Email 寄送設定（SendGrid）</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">月報透過 SendGrid 寄出 · 未設定時自動 fallback mock 模式（不真寄）</div>
+          </div>
+        </div>
+        <div id="email-status-box" style="padding:14px 20px"><div style="color:var(--text-muted)">載入中…</div></div>
+      </div>
+    </div>
+
+    <!-- B2. 資料夾自動上傳 -->
+    <div class="section">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">📂 資料夾自動上傳</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
+              把 CSV 拖到 <code id="watch-dir-display">watch/{shop_name}/</code> 子資料夾，系統會每 5 秒自動處理 → 成功移到 processed/，失敗移到 failed/
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;flex:0">
+            <button class="btn" id="watcher-toggle" style="padding:6px 14px">啟動</button>
+            <button class="btn" onclick="watcherScanNow()" style="padding:6px 14px">🔄 立即掃描</button>
+          </div>
+        </div>
+        <div id="watcher-status-box" style="padding:14px 20px"><div style="color:var(--text-muted)">載入中…</div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <div class="card-head"><div class="card-title">📚 上傳歷史</div></div>
+        <div id="upload-list" style="padding:8px 0"><div style="text-align:center;color:var(--text-muted);padding:24px">載入中…</div></div>
+      </div>
+    </div>
+
+    <!-- C. 競品設定 -->
+    <div class="section">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">🎯 競品監控對象</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">指定要追蹤的競品店家 → 系統定期透過 Open API 抓取對方公開商品資料</div>
+          </div>
+          <button class="btn btn-primary" onclick="openCompetitorModal()" style="flex:0;padding:6px 14px">+ 新增競品</button>
+        </div>
+        <div id="competitor-list" style="padding:8px 0"><div style="text-align:center;color:var(--text-muted);padding:24px">載入中…</div></div>
+      </div>
+    </div>
+
+    <!-- D. 待執行調整任務 -->
+    <div class="section">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">📋 待執行調整任務（半自動模式）</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">儀表板記錄的出價/預算調整 → 操作員到賣家中心改完後標記完成</div>
+          </div>
+        </div>
+        <div id="adj-list" style="padding:8px 0"><div style="text-align:center;color:var(--text-muted);padding:24px">載入中…</div></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ─────────── Modals ─────────── -->
+
+<!-- 出價/預算調整 modal -->
+<div class="modal-mask" id="adjust-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">⚙️ 調整出價 / 預算</div>
+      <button class="modal-close" onclick="closeModal('adjust-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="info-box" id="adjust-info"></div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>新 CPC 出價（NT$）</label>
+          <input type="number" id="adj-bid" step="0.1" min="0">
+        </div>
+        <div class="form-row">
+          <label>新每日預算（NT$）</label>
+          <input type="number" id="adj-budget" step="50" min="0">
+        </div>
+      </div>
+      <div class="form-row">
+        <label>備註（選填）</label>
+        <textarea id="adj-note" rows="2" placeholder="例：因母親節活動加碼"></textarea>
+      </div>
+      <div class="info-box" style="background:#FEF3C7;color:#92400E">
+        💡 半自動模式：儀表板會記錄這筆調整意圖，請接著到賣家中心後台手動修改，回來後在「整合與設定 → 待執行調整任務」標記完成。
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('adjust-modal')">取消</button>
+      <button class="btn btn-primary" onclick="submitAdjust()">送出調整</button>
+    </div>
+  </div>
+</div>
+
+<!-- 新增規則 modal -->
+<div class="modal-mask" id="rule-modal">
+  <div class="modal" style="width:580px">
+    <div class="modal-head">
+      <div class="modal-title">🤖 新增自動規則</div>
+      <button class="modal-close" onclick="closeModal('rule-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label>規則名稱 *</label>
+        <input type="text" id="rule-name" placeholder="例：低 ROAS 自動暫停">
+      </div>
+      <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
+        <div class="form-row">
+          <label>監控指標</label>
+          <select id="rule-metric">
+            <option value="roas">ROAS</option>
+            <option value="ctr">CTR</option>
+            <option value="cpc">CPC</option>
+            <option value="spend">花費</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>條件</label>
+          <select id="rule-op">
+            <option value="lt">小於 &lt;</option>
+            <option value="gt">大於 &gt;</option>
+            <option value="lte">小於等於 ≤</option>
+            <option value="gte">大於等於 ≥</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>門檻值</label>
+          <input type="number" id="rule-threshold" step="0.1" value="1.5">
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>連續天數</label>
+          <input type="number" id="rule-window" value="3" min="1">
+        </div>
+        <div class="form-row">
+          <label>觸發動作</label>
+          <select id="rule-action">
+            <option value="pause">暫停廣告</option>
+            <option value="lower_bid">降低出價</option>
+            <option value="raise_bid">提高出價</option>
+            <option value="notify">僅通知</option>
+          </select>
+        </div>
+      </div>
+      <div class="info-box">
+        💡 規則範例：「ROAS &lt; 1.5 連續 3 天 → 自動暫停」<br>
+        系統會每天定時掃描所有廣告，符合條件的會被自動處理或推播到 LINE。
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('rule-modal')">取消</button>
+      <button class="btn btn-primary" onclick="submitRule()">建立規則</button>
+    </div>
+  </div>
+</div>
+
+<!-- 新增受眾 modal -->
+<div class="modal-mask" id="audience-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">👥 新增受眾包</div>
+      <button class="modal-close" onclick="closeModal('audience-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label>受眾名稱 *</label>
+        <input type="text" id="aud-name" placeholder="例：高客單價熟客">
+      </div>
+      <div class="form-row">
+        <label>篩選條件 *</label>
+        <textarea id="aud-cond" rows="3" placeholder="例：歷史訂單 ≥ 5 AND 累積消費 ≥ $10000"></textarea>
+      </div>
+      <div class="info-box">
+        💡 受眾建議組合：<br>
+        • 加購未結帳（24h 內 / 7 天內）→ 黃金族群<br>
+        • 瀏覽商品 30 秒以上但未加購 → 中等族群<br>
+        • 已購買者 → 從新客廣告排除，避免浪費
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('audience-modal')">取消</button>
+      <button class="btn btn-primary" onclick="submitAudience()">建立</button>
+    </div>
+  </div>
+</div>
+
+<!-- 新增客戶 modal -->
+<div class="modal-mask" id="customer-modal">
+  <div class="modal" style="width:560px">
+    <div class="modal-head">
+      <div class="modal-title">👤 新增客戶</div>
+      <button class="modal-close" onclick="closeModal('customer-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-row">
+          <label>客戶名稱 *</label>
+          <input type="text" id="cust-name">
+        </div>
+        <div class="form-row">
+          <label>聯絡電話</label>
+          <input type="text" id="cust-contact">
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>Email</label>
+          <input type="email" id="cust-email">
+        </div>
+        <div class="form-row">
+          <label>LINE ID</label>
+          <input type="text" id="cust-line">
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>月費（NT$）</label>
+          <input type="number" id="cust-fee" value="30000">
+        </div>
+        <div class="form-row">
+          <label>目標 ROAS</label>
+          <input type="number" id="cust-roas" step="0.1" value="3.5">
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>合約起</label>
+          <input type="date" id="cust-start">
+        </div>
+        <div class="form-row">
+          <label>合約迄</label>
+          <input type="date" id="cust-end">
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('customer-modal')">取消</button>
+      <button class="btn btn-primary" onclick="submitCustomer()">新增</button>
+    </div>
+  </div>
+</div>
+
+<!-- 新增團隊成員 modal -->
+<div class="modal-mask" id="team-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">👤 新增團隊成員</div>
+      <button class="modal-close" onclick="closeModal('team-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label>姓名 *</label>
+        <input type="text" id="team-name">
+      </div>
+      <div class="form-row">
+        <label>Email *</label>
+        <input type="email" id="team-email">
+      </div>
+      <div class="form-row">
+        <label>角色</label>
+        <select id="team-role">
+          <option value="operator">操作員 — 可調整廣告</option>
+          <option value="admin">主管 — 可管理規則 + 客戶</option>
+          <option value="viewer">檢視者 — 唯讀</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('team-modal')">取消</button>
+      <button class="btn btn-primary" onclick="submitTeamMember()">新增</button>
+    </div>
+  </div>
+</div>
+
+<!-- 月報預覽 modal -->
+<div class="modal-mask" id="report-modal">
+  <div class="modal" style="width:680px">
+    <div class="modal-head">
+      <div class="modal-title">📊 月報預覽</div>
+      <button class="modal-close" onclick="closeModal('report-modal')">×</button>
+    </div>
+    <div class="modal-body" id="report-body"></div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('report-modal')">關閉</button>
+      <button class="btn" onclick="printReportAsPdf()">📄 下載 PDF</button>
+      <button class="btn btn-primary" id="report-send-btn">📤 寄出月報</button>
+    </div>
+  </div>
+</div>
+
+<!-- 新增競品 modal -->
+<div class="modal-mask" id="competitor-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">🎯 新增競品監控</div>
+      <button class="modal-close" onclick="closeModal('competitor-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label>競品店家名稱 *</label>
+        <input type="text" id="comp-name" placeholder="例：耳機王國">
+      </div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>蝦皮 Shop ID</label>
+          <input type="text" id="comp-shopid" placeholder="例：123456789">
+        </div>
+        <div class="form-row">
+          <label>類目</label>
+          <select id="comp-cat">
+            <option value="">未指定</option>
+            <option>3C</option>
+            <option>美妝</option>
+            <option>食品</option>
+            <option>居家</option>
+            <option>母嬰</option>
+            <option>寵物</option>
+            <option>服飾</option>
+            <option>戶外</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>店家 URL（選填）</label>
+        <input type="text" id="comp-url" placeholder="https://shopee.tw/shop/...">
+      </div>
+      <div class="form-row">
+        <label>追蹤關鍵字（用逗號分隔）</label>
+        <input type="text" id="comp-kw" placeholder="無線耳機, 藍牙喇叭">
+      </div>
+      <div class="form-row">
+        <label>備註</label>
+        <textarea id="comp-notes" rows="2" placeholder="為什麼把這家當競品？"></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('competitor-modal')">取消</button>
+      <button class="btn btn-primary" onclick="submitCompetitor()">新增</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ────────── 共用工具 ────────── */
+const roasClass = r => r >= 3 ? 'roas-good' : r >= 1.5 ? 'roas-warn' : 'roas-bad';
+const roasIcon  = r => r >= 3 ? '🟢' : r >= 1.5 ? '🟡' : '🔴';
+const fmt$ = n => '$' + n.toLocaleString();
+
+function sparkline(values, color='#EE4D2D') {
+  const w = 80, h = 24, max = Math.max(...values), min = Math.min(...values);
+  const pts = values.map((v, i) => {
+    const x = (i / (values.length - 1)) * w;
+    const y = h - ((v - min) / (max - min || 1)) * h;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  return `<svg class="spark" width="${w}" height="${h}"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.5"/></svg>`;
+}
+function deltaTxt(pct) {
+  if (pct > 5) return `<span class="trend-up">▲ ${pct}%</span>`;
+  if (pct < -5) return `<span class="trend-down">▼ ${Math.abs(pct)}%</span>`;
+  return `<span class="trend-flat">― ${pct}%</span>`;
+}
+function showError(elId, msg) {
+  document.getElementById(elId).innerHTML =
+    `<div style="padding:24px;text-align:center;color:var(--bad)">⚠️ ${msg}</div>`;
+}
+
+/* ────────── 頁面切換 ────────── */
+document.querySelectorAll('.nav li').forEach(li => {
+  li.addEventListener('click', () => {
+    document.querySelectorAll('.nav li').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
+    li.classList.add('active');
+    document.getElementById('page-' + li.dataset.page).classList.add('active');
+  });
+});
+
+/* ────────── 全域客戶選擇器 ────────── */
+// _currentCustomer / _currentShop = null → 顯示所有
+let _currentCustomer = null;
+let _currentShops = []; // 該客戶的 shop_ids 陣列
+let _customersList = [];
+
+async function loadCustomerSwitcher() {
+  try {
+    const r = await api.listCustomers();
+    _customersList = r.items || [];
+    const sel = document.getElementById('customer-select');
+    if (!sel) return;
+    // 保留「所有客戶」option，後面塞客戶
+    sel.innerHTML = '<option value="">所有客戶（合併）</option>' +
+      _customersList.map(c =>
+        `<option value="${c.id}">${c.name} ${(c.shop_ids||[]).length>0?'('+(c.shop_ids||[]).join('/')+')':''}</option>`
+      ).join('');
+    // 從 URL 還原
+    const params = new URLSearchParams(location.search);
+    const cid = params.get('customer');
+    if (cid) {
+      sel.value = cid;
+      applyCustomerSelection(cid);
+    }
+    refreshCustomerInfo();
+  } catch (e) { console.error('loadCustomerSwitcher', e); }
+}
+
+function applyCustomerSelection(cid) {
+  if (!cid) {
+    _currentCustomer = null;
+    _currentShops = [];
+  } else {
+    _currentCustomer = _customersList.find(c => c.id === cid);
+    _currentShops = _currentCustomer?.shop_ids || [];
+  }
+}
+
+function refreshCustomerInfo() {
+  const info = document.getElementById('customer-info');
+  if (!info) return;
+  if (!_currentCustomer) {
+    info.innerHTML = '<span style="color:var(--text-muted)">合併所有店家數據</span>';
+  } else {
+    const c = _currentCustomer;
+    const fee = c.monthly_fee ? `· 月費 $${c.monthly_fee.toLocaleString()}` : '';
+    const target = c.target_roas ? `· 目標 ROAS ${c.target_roas}` : '';
+    info.innerHTML = `<strong>${c.name}</strong> · 店家 ${(c.shop_ids||[]).join('/')} ${fee} ${target}`;
+  }
+}
+
+// 主要 shop filter — 給所有 endpoint 用
+function _getCurrentShop() {
+  // 多 shop 客戶目前一次只 query 一個（取第一個），未來可改成 batch
+  if (!_currentCustomer) return null;
+  return _currentShops[0] || null;
+}
+
+window.onCustomerChange = async function(cid) {
+  applyCustomerSelection(cid);
+  refreshCustomerInfo();
+  // 同步到 URL（不刷新頁面）
+  const params = new URLSearchParams(location.search);
+  if (cid) params.set('customer', cid); else params.delete('customer');
+  history.replaceState({}, '', location.pathname + (params.toString() ? '?'+params : ''));
+  // 重載所有受 shop filter 影響的頁面
+  await Promise.all([
+    loadKpi(_currentPeriod),
+    loadTrend(),
+    loadProfitCards(_currentPeriod),
+    loadHealth(),
+    loadBudgetPacing(),
+  ]);
+  // 商品成本設定面板若展開，也重載（過濾到目前客戶的 shop）
+  const pcfgPanel = document.getElementById('pcfg-panel');
+  if (pcfgPanel && pcfgPanel.style.display !== 'none') loadProfitConfig();
+  // AI 建議卡若已產生，提示要重新產（因為客戶換了）
+  const aiBox = document.getElementById('ai-insights-box');
+  if (aiBox && aiBox.querySelector('.info-box')) {
+    aiBox.innerHTML = `<div style="padding:8px;color:#92400E;background:#FEF3C7;border-radius:6px;font-size:12px">
+      ⚠️ 客戶已切換，舊建議基於上一個客戶，請點「✨ 產生建議」重新分析
+    </div>`;
+  }
+  toast(cid ? '✓ 切到 ' + (_currentCustomer?.name || cid) : '✓ 顯示所有客戶');
+};
+
+/* ────────── KPI ────────── */
+let trendChart = null;
+let _currentPeriod = 'week';
+async function loadKpi(period = 'week') {
+  _currentPeriod = period;
+  try {
+    const shop = _getCurrentShop();
+    const k = await api.getKpi(period, shop ? { shop } : {});
+    const isReal = k._meta?.source === 'real';
+    const badge = isReal
+      ? `<span style="display:inline-block;padding:3px 8px;background:#16A34A;color:#fff;border-radius:10px;font-size:11px;font-weight:600">● 真實 CSV 資料（${k._meta.row_count} 筆）</span>`
+      : `<span style="display:inline-block;padding:3px 8px;background:#94A3B8;color:#fff;border-radius:10px;font-size:11px;font-weight:600">○ Demo 範例資料</span>`;
+    document.getElementById('kpi-cards').innerHTML = `
+      <div style="grid-column:1/-1;margin-bottom:-4px">${badge}</div>
+      <div class="kpi"><div class="kpi-label">總花費</div>
+        <div class="kpi-value">${fmt$(k.spend)}</div>
+        <div class="kpi-meta"><span class="${k.spend_delta>=0?'delta-up':'delta-down'}">${k.spend_delta>=0?'▲':'▼'} ${Math.abs(k.spend_delta)}%</span> vs 上期</div></div>
+      <div class="kpi"><div class="kpi-label">總營收</div>
+        <div class="kpi-value">${fmt$(k.revenue)}</div>
+        <div class="kpi-meta"><span class="${k.revenue_delta>=0?'delta-up':'delta-down'}">${k.revenue_delta>=0?'▲':'▼'} ${Math.abs(k.revenue_delta)}%</span> vs 上期</div></div>
+      <div class="kpi"><div class="kpi-label">整體 ROAS</div>
+        <div class="kpi-value">${k.roas.toFixed(2)}</div>
+        <div class="kpi-meta"><span class="target">目標 ${k.target_roas}</span> · <span class="${k.roas>=k.target_roas?'delta-up':'delta-down'}">${k.roas>=k.target_roas?'超標':'未達'}</span></div></div>
+      <div class="kpi"><div class="kpi-label">ACoS</div>
+        <div class="kpi-value">${k.acos.toFixed(1)}%</div>
+        <div class="kpi-meta"><span class="target">目標 ≤ ${k.target_acos}%</span></div></div>
+      <div class="kpi"><div class="kpi-label">CTR / CPM</div>
+        <div class="kpi-value">${k.ctr}% / $${k.cpm}</div>
+        <div class="kpi-meta">點擊率 / 千次曝光成本</div></div>`;
+  } catch (e) {
+    showError('kpi-cards', `載入 KPI 失敗：${e.message}`);
+  }
+}
+
+async function loadTrend() {
+  try {
+    const shop = _getCurrentShop();
+    const t = await api.getKpiTrend(7, shop ? { shop } : {});
+    const labels = t.points.map(p => p.date.slice(5).replace('-', '/'));
+    const ctx = document.getElementById('trend-chart');
+    if (trendChart) trendChart.destroy();
+    trendChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label:'營收', data:t.points.map(p=>p.revenue), borderColor:'#EE4D2D', backgroundColor:'rgba(238,77,45,0.08)', fill:true, tension:0.35, borderWidth:2 },
+          { label:'花費', data:t.points.map(p=>p.spend),   borderColor:'#6B6560', backgroundColor:'rgba(107,101,96,0.05)', fill:true, tension:0.35, borderWidth:2 }
+        ]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ position:'top', align:'end' } },
+        scales:{ y:{ beginAtZero:false, ticks:{ callback: v => '$' + (v/1000) + 'k' } } },
+        interaction:{ mode:'index', intersect:false }
+      }
+    });
+  } catch (e) {
+    console.error('trend', e);
+  }
+}
+
+document.querySelectorAll('#period-seg button').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#period-seg button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    const map = { '昨日':'yesterday', '本週':'week', '本月':'month' };
+    loadKpi(map[b.textContent.trim()] || 'week');
+  });
+});
+
+/* ────────── 帳號表 ────────── */
+async function loadAccounts() {
+  try {
+    const r = await api.getAccounts();
+    document.getElementById('acc-tbody').innerHTML = r.items.map(a => `
+      <tr>
+        <td><span class="badge ${a.type==='own'?'badge-own':'badge-client'}">${a.type==='own'?'自有':'客戶'}</span></td>
+        <td>${a.name}</td>
+        <td class="num">${fmt$(a.spend)}</td>
+        <td class="num">${fmt$(a.revenue)}</td>
+        <td class="num ${roasClass(a.roas)}">${roasIcon(a.roas)} ${a.roas.toFixed(2)}</td>
+        <td class="num">${a.budget_used}%</td>
+        <td class="num">每月 ${a.settle_day} 日</td>
+        <td>${a.status==='warn'?'⚠ 警示':'投放中'}</td>
+      </tr>`).join('');
+  } catch (e) {
+    showError('acc-tbody', `載入帳號失敗：${e.message}`);
+  }
+}
+
+/* ────────── 熱力圖 ────────── */
+async function loadHeatmap() {
+  try {
+    const r = await api.getHeatmap();
+    const days = ['週一','週二','週三','週四','週五','週六','週日'];
+    let html = '<div></div>';
+    for (let h = 0; h < 24; h++) html += `<div class="label" style="text-align:center">${h}</div>`;
+    days.forEach(d => {
+      html += `<div class="label">${d}</div>`;
+      for (let h = 0; h < 24; h++) {
+        const cell = r.cells.find(c => c.day === d && c.hour === h) || { roas:0, level:0 };
+        const lvl = cell.level === 0 ? '' : 'l' + cell.level;
+        const peak = r.peak_hours.includes(h) ? 'peak' : '';
+        html += `<div class="cell ${lvl} ${peak}" title="${d} ${h}:00 ROAS ${cell.roas}"></div>`;
+      }
+    });
+    document.getElementById('heatmap').innerHTML = html;
+  } catch (e) {
+    showError('heatmap', `載入熱力圖失敗：${e.message}`);
+  }
+}
+
+/* ────────── 活動行事曆 ────────── */
+async function loadEvents() {
+  try {
+    const r = await api.getEvents();
+    document.getElementById('events').innerHTML = r.items.map(e => `
+      <div class="event-row">
+        <div class="event-countdown">D-${e.days_until}</div>
+        <div>
+          <div class="event-name">
+            <span class="event-tag ${e.type==='big'?'tag-big':'tag-small'}">${e.type==='big'?'大型':'小型'}</span>
+            ${e.name}
+          </div>
+          <div class="event-meta">
+            ${e.tip ? `<span class="event-tag tag-tip">💡 ${e.tip}</span>` : ''}
+            上次 ROAS ${e.last_roas}
+          </div>
+        </div>
+        <button class="btn" style="flex:0;padding:6px 14px">設定提醒</button>
+      </div>`).join('');
+  } catch (e) {
+    showError('events', `載入活動失敗：${e.message}`);
+  }
+}
+
+/* ────────── AI 建議 ────────── */
+async function loadSuggestions(filter='all') {
+  try {
+    const r = await api.getSuggestions(filter);
+    document.getElementById('ai-count').textContent = r.total;
+    document.getElementById('ai-cards').innerHTML = r.items.map(s => `
+      <div class="ai-card" data-id="${s.id}">
+        <span class="ai-type">${s.type}</span>
+        <div class="ai-title">${s.title}</div>
+        <div class="ai-reason">${s.reason}</div>
+        <div class="ai-impact">
+          ${Object.entries(s.impact).map(([k,v]) => `<div class="ai-impact-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
+        </div>
+        <div class="ai-actions">
+          <button class="btn">忽略</button>
+          <button class="btn btn-primary" onclick="onApplySuggestion('${s.id}', this)">確認執行</button>
+        </div>
+      </div>`).join('');
+  } catch (e) {
+    showError('ai-cards', `載入建議失敗：${e.message}`);
+  }
+}
+
+window.onApplySuggestion = async function(id, btn) {
+  btn.disabled = true; btn.textContent = '套用中…';
+  try {
+    await api.applySuggestion(id);
+    btn.textContent = '✓ 已送出'; btn.style.background = 'var(--good)';
+  } catch (e) {
+    btn.disabled = false; btn.textContent = '失敗，重試';
+    alert('套用失敗：' + e.message);
+  }
+};
+
+document.querySelectorAll('#ai-filter .chip').forEach(c => {
+  c.addEventListener('click', () => {
+    document.querySelectorAll('#ai-filter .chip').forEach(x => x.classList.remove('active'));
+    c.classList.add('active');
+    loadSuggestions(c.dataset.type);
+  });
+});
+
+/* ────────── 上升中商品 ────────── */
+async function loadRising() {
+  try {
+    const r = await api.getRising();
+    document.getElementById('rising-tbody').innerHTML = r.items.map(p => `
+      <tr>
+        <td><span class="badge ${p.shop.startsWith('自家')?'badge-own':'badge-client'}">${p.shop}</span></td>
+        <td>${p.product}</td>
+        <td>${sparkline(p.clicks)} ${deltaTxt(p.clicks_delta)}</td>
+        <td>${deltaTxt(p.cart_delta)}</td>
+        <td class="num">${p.conv}%</td>
+        <td class="num">$${p.current_budget}/日</td>
+        <td><span class="ai-type">${p.suggest}</span></td>
+        <td><button class="btn btn-primary" style="padding:4px 12px;font-size:12px"
+            onclick='openAdjustModal(${JSON.stringify(p).replace(/'/g, "&#39;")})'>套用</button></td>
+      </tr>`).join('');
+  } catch (e) {
+    showError('rising-tbody', `載入失敗：${e.message}`);
+  }
+}
+
+/* ────────── 優化前後 ────────── */
+async function loadOptimized() {
+  try {
+    const r = await api.getOptimized();
+    document.getElementById('ba-list').innerHTML = r.items.map(b => `
+      <div class="ba-card">
+        <div class="ba-head">
+          <div>
+            <div class="ba-product">${b.product}</div>
+            <div class="ba-shop">${b.shop}</div>
+          </div>
+          <span class="ba-action">⚡ ${b.action}</span>
+        </div>
+        <div class="ba-grid">
+          <div class="ba-col">
+            <div class="ba-col-label">調整前 · 7 天</div>
+            <div class="ba-col-row"><span class="k">點擊</span><span class="v">${b.before.clicks.toLocaleString()}</span></div>
+            <div class="ba-col-row"><span class="k">加購</span><span class="v">${b.before.cart}</span></div>
+            <div class="ba-col-row"><span class="k">訂單</span><span class="v">${b.before.orders}</span></div>
+            <div class="ba-col-row"><span class="k">花費</span><span class="v">${fmt$(b.before.spend)}</span></div>
+            <div class="ba-col-row"><span class="k">營收</span><span class="v">${fmt$(b.before.revenue)}</span></div>
+            <div class="ba-col-row"><span class="k">ROAS</span><span class="v">${b.before.roas}</span></div>
+          </div>
+          <div class="ba-arrow">→</div>
+          <div class="ba-col">
+            <div class="ba-col-label">調整後 · 7 天</div>
+            <div class="ba-col-row"><span class="k">點擊</span><span class="v">${b.after.clicks.toLocaleString()}</span></div>
+            <div class="ba-col-row"><span class="k">加購</span><span class="v">${b.after.cart}</span></div>
+            <div class="ba-col-row"><span class="k">訂單</span><span class="v">${b.after.orders}</span></div>
+            <div class="ba-col-row"><span class="k">花費</span><span class="v">${fmt$(b.after.spend)}</span></div>
+            <div class="ba-col-row"><span class="k">營收</span><span class="v">${fmt$(b.after.revenue)}</span></div>
+            <div class="ba-col-row"><span class="k">ROAS</span><span class="v">${b.after.roas}</span></div>
+          </div>
+          <div class="ba-lift">
+            <div class="ba-col-label" style="color:var(--accent)">提升幅度</div>
+            <div class="ba-lift-row"><span>點擊</span><span class="v">${b.lift.clicks}</span></div>
+            <div class="ba-lift-row"><span>加購</span><span class="v">${b.lift.cart}</span></div>
+            <div class="ba-lift-row"><span>訂單</span><span class="v">${b.lift.orders}</span></div>
+            <div class="ba-lift-row"><span>營收</span><span class="v">${b.lift.revenue}</span></div>
+            <div class="ba-lift-row"><span>ROAS</span><span class="v">${b.lift.roas}</span></div>
+          </div>
+        </div>
+      </div>`).join('');
+  } catch (e) {
+    showError('ba-list', `載入失敗：${e.message}`);
+  }
+}
+
+/* ────────── 行動清單 ────────── */
+async function loadActions() {
+  try {
+    const r = await api.getActions();
+    document.getElementById('action-list').innerHTML = r.items.map(a => `
+      <li>
+        <div class="check-icon">${a.freq}</div>
+        <div class="check-body">
+          <div class="check-title">${a.title}</div>
+          <div class="check-desc">${a.desc}</div>
+        </div>
+      </li>`).join('');
+  } catch (e) {
+    showError('action-list', `載入失敗：${e.message}`);
+  }
+}
+
+/* ────────── 每週快照 ────────── */
+let snapChart = null;
+function toast(msg) {
+  let t = document.querySelector('.snap-toast');
+  if (!t) { t = document.createElement('div'); t.className = 'snap-toast'; document.body.appendChild(t); }
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+async function loadSnapshots() {
+  try {
+    const r = await api.listSnapshots();
+    const wrap = document.getElementById('snap-list');
+    if (!r.items.length) {
+      wrap.innerHTML = `<div style="padding:32px;text-align:center;color:var(--text-muted)">
+        尚未建立任何快照 · 點上方「建立本週快照」開始紀錄</div>`;
+      return;
+    }
+    wrap.innerHTML = `
+      <table>
+        <thead>
+          <tr><th>週次</th><th>建立時間</th><th>帳號數</th><th>總花費</th><th>總營收</th><th>整體 ROAS</th><th></th></tr>
+        </thead>
+        <tbody>
+          ${r.items.map(s => `
+            <tr>
+              <td><strong>${s.week}</strong></td>
+              <td class="num" style="font-size:12px">${s.taken_at.replace('T', ' ').slice(0,16)}</td>
+              <td class="num">${s.account_count}</td>
+              <td class="num">${fmt$(s.total_spend)}</td>
+              <td class="num">${fmt$(s.total_revenue)}</td>
+              <td class="num ${roasClass(s.overall_roas)}">${s.overall_roas}</td>
+              <td><a href="${api.csvUrl(s.id)}" class="btn" style="display:inline-block;padding:4px 12px;font-size:12px;text-decoration:none;color:var(--text-primary)">⬇ 下載 CSV</a></td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } catch (e) {
+    showError('snap-list', `載入快照失敗：${e.message}`);
+  }
+}
+
+async function loadSnapChart() {
+  try {
+    const r = await api.compareSnapshots(8);
+    const ctx = document.getElementById('snap-chart');
+    if (snapChart) snapChart.destroy();
+    if (!r.weeks.length) {
+      ctx.parentElement.innerHTML = '<div style="padding:60px;text-align:center;color:var(--text-muted)">尚無快照數據</div>';
+      return;
+    }
+    snapChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: r.weeks,
+        datasets: [
+          { type:'bar',  label:'花費', data:r.spend,   backgroundColor:'rgba(107,101,96,0.4)', yAxisID:'y' },
+          { type:'bar',  label:'營收', data:r.revenue, backgroundColor:'rgba(238,77,45,0.5)',  yAxisID:'y' },
+          { type:'line', label:'ROAS', data:r.roas,    borderColor:'#16A34A', backgroundColor:'#16A34A', yAxisID:'y1', tension:0.3, borderWidth:2 }
+        ]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ position:'top', align:'end' } },
+        scales:{
+          y:  { position:'left',  ticks:{ callback: v => '$' + (v/1000) + 'k' } },
+          y1: { position:'right', grid:{ drawOnChartArea:false }, ticks:{ callback: v => v + 'x' } }
+        }
+      }
+    });
+  } catch (e) { console.error('snap chart', e); }
+}
+
+window.onTakeSnapshot = async function(btn) {
+  btn.disabled = true; const orig = btn.textContent; btn.textContent = '建立中…';
+  try {
+    const s = await api.takeSnapshot();
+    toast(`✓ 已建立 ${s.week} 快照（${s.id}）`);
+    await Promise.all([loadSnapshots(), loadSnapChart()]);
+  } catch (e) {
+    toast('✗ 建立失敗：' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = orig;
+  }
+};
+
+/* ────────── 競品監控 ────────── */
+let priceChart = null;
+async function loadCompetitorKeywords() {
+  try {
+    const r = await api.getCompetitorKeywords();
+    document.getElementById('comp-kw-tbody').innerHTML = r.items.map(k => {
+      const first = k.rank_trend[0], last = k.rank_trend[k.rank_trend.length-1];
+      const diff = first - last; // 正數=往前進
+      const diffTxt = diff > 0 ? `<span class="trend-up">↑ ${diff} 名</span>`
+                    : diff < 0 ? `<span class="trend-down">↓ ${Math.abs(diff)} 名</span>`
+                    : `<span class="trend-flat">— 持平</span>`;
+      return `
+        <tr>
+          <td><strong>${k.keyword}</strong></td>
+          <td class="num">第 ${k.my_rank} 名</td>
+          <td>${sparkline(k.rank_trend.map(x => -x), '#16A34A')} ${diffTxt}</td>
+          <td>${k.top_competitor}</td>
+          <td class="num">$${k.comp_bid}</td>
+          <td class="num">${k.search_volume.toLocaleString()}</td>
+          <td><button class="btn" style="padding:4px 12px;font-size:12px">追蹤</button></td>
+        </tr>`;
+    }).join('');
+  } catch (e) {
+    showError('comp-kw-tbody', `載入失敗：${e.message}`);
+  }
+}
+
+async function loadPriceChart(category='3C') {
+  try {
+    const r = await api.getCompetitorPrices(category);
+    const ctx = document.getElementById('price-chart');
+    if (priceChart) priceChart.destroy();
+    priceChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: r.buckets,
+        datasets: [
+          { label:'競品商品數', data:r.competitors, backgroundColor:'rgba(107,101,96,0.5)' },
+          { label:'我方商品數', data:r.ours,        backgroundColor:'rgba(238,77,45,0.7)' }
+        ]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins:{
+          legend:{ position:'top', align:'end' },
+          title:{ display:true, text:`${category} 類目 · 各價格區間商品分布`, font:{size:13} }
+        },
+        scales:{ y:{ beginAtZero:true } }
+      }
+    });
+  } catch (e) { console.error('price chart', e); }
+}
+
+document.querySelectorAll('#cat-seg button').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#cat-seg button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    loadPriceChart(b.dataset.cat);
+  });
+});
+
+/* ────────── Modal 工具 ────────── */
+function openModal(id)  { document.getElementById(id).classList.add('show'); }
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+document.querySelectorAll('.modal-mask').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('show'); });
+});
+
+/* ────────── 出價/預算調整 ────────── */
+let _adjustCtx = null;
+window.openAdjustModal = async function(product) {
+  _adjustCtx = product;
+  let cur = { current_bid:5, current_budget:product.current_budget||500, current_roas:3, ad_type:'搜尋廣告' };
+  try { cur = await api.getAdSettings(product.id || 'P1'); } catch(e) {}
+  document.getElementById('adjust-info').innerHTML = `
+    <div><strong>${product.product}</strong> · ${product.shop}</div>
+    <div style="margin-top:6px;display:flex;gap:16px;flex-wrap:wrap">
+      <span>廣告類型：<span class="v">${cur.ad_type}</span></span>
+      <span>目前出價：<span class="v">$${cur.current_bid}</span></span>
+      <span>目前預算：<span class="v">$${cur.current_budget}/日</span></span>
+      <span>目前 ROAS：<span class="v">${cur.current_roas}</span></span>
+    </div>
+    <div style="margin-top:8px;padding:6px 10px;background:var(--accent-pale);border-radius:6px;color:var(--accent);font-weight:500">
+      💡 AI 建議：${product.suggest}
+    </div>`;
+  // 預填依建議
+  const m = product.suggest && product.suggest.match(/(\d+)%/);
+  if (m && product.suggest.includes('預算')) {
+    document.getElementById('adj-budget').value = Math.round(cur.current_budget * (1 + parseInt(m[1])/100));
+    document.getElementById('adj-bid').value = cur.current_bid;
+  } else if (m && product.suggest.includes('出價')) {
+    document.getElementById('adj-bid').value = (cur.current_bid * (1 + parseInt(m[1])/100)).toFixed(1);
+    document.getElementById('adj-budget').value = cur.current_budget;
+  } else {
+    document.getElementById('adj-bid').value = cur.current_bid;
+    document.getElementById('adj-budget').value = cur.current_budget;
+  }
+  document.getElementById('adj-note').value = '';
+  _adjustCtx._cur = cur;
+  openModal('adjust-modal');
+};
+
+window.submitAdjust = async function() {
+  if (!_adjustCtx) return;
+  const newBid = parseFloat(document.getElementById('adj-bid').value);
+  const newBudget = parseFloat(document.getElementById('adj-budget').value);
+  const cur = _adjustCtx._cur;
+  const bidChanged = Math.abs(newBid - cur.current_bid) > 0.01;
+  const budgetChanged = Math.abs(newBudget - cur.current_budget) > 0.01;
+  if (!bidChanged && !budgetChanged) { toast('沒有變動'); return; }
+  try {
+    await api.submitAdjust({
+      product_id: _adjustCtx.id || 'P?',
+      product_name: _adjustCtx.product,
+      shop: _adjustCtx.shop,
+      action_type: bidChanged && budgetChanged ? 'both' : (bidChanged ? 'bid' : 'budget'),
+      old_bid: cur.current_bid, new_bid: bidChanged ? newBid : null,
+      old_budget: cur.current_budget, new_budget: budgetChanged ? newBudget : null,
+      note: document.getElementById('adj-note').value || null,
+    });
+    closeModal('adjust-modal');
+    toast('✓ 調整任務已建立 → 請至「整合與設定」執行');
+    loadAdjustments();
+  } catch (e) {
+    toast('✗ ' + e.message);
+  }
+};
+
+async function loadAdjustments() {
+  try {
+    const r = await api.listAdjustments();
+    const wrap = document.getElementById('adj-list');
+    if (!r.items.length) {
+      wrap.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:24px">尚無待執行任務</div>`;
+      return;
+    }
+    wrap.innerHTML = `
+      <table>
+        <thead><tr><th>狀態</th><th>商品</th><th>調整內容</th><th>備註</th><th>建立時間</th><th></th></tr></thead>
+        <tbody>${r.items.map(i => {
+          const changes = [];
+          if (i.new_bid != null)    changes.push(`出價 $${i.old_bid} → <strong>$${i.new_bid}</strong>`);
+          if (i.new_budget != null) changes.push(`預算 $${i.old_budget} → <strong>$${i.new_budget}</strong>`);
+          return `<tr>
+            <td>${i.status==='done' ? '<span style="color:var(--good);font-weight:500">✓ 已完成</span>' : '<span style="color:var(--warn);font-weight:500">⏳ 待執行</span>'}</td>
+            <td><div style="font-weight:500">${i.product_name}</div><div style="font-size:11px;color:var(--text-muted)">${i.shop}</div></td>
+            <td>${changes.join('<br>')}</td>
+            <td style="font-size:12px;color:var(--text-secondary);max-width:200px">${i.note || '—'}</td>
+            <td class="num" style="font-size:12px">${i.created_at.slice(0,16).replace('T',' ')}</td>
+            <td>${i.status==='pending' ? `<button class="btn btn-primary" style="padding:4px 12px;font-size:12px" onclick="markDone('${i.id}', this)">標記完成</button>` : '—'}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>`;
+  } catch (e) {
+    showError('adj-list', '載入失敗：' + e.message);
+  }
+}
+
+window.markDone = async function(id, btn) {
+  btn.disabled = true; btn.textContent = '處理中…';
+  try { await api.markAdjustDone(id); toast('✓ 已標記完成'); loadAdjustments(); }
+  catch (e) { toast('✗ ' + e.message); btn.disabled = false; }
+};
+
+/* ────────── OAuth 綁定 ────────── */
+window.onConnectShop = async function() {
+  try {
+    const r = await api.getShopeeAuthUrl();
+    if (r.mock) {
+      if (!confirm('🧪 目前是 Mock 模式（未設定真實 partner_id）\n會建立假授權記錄做 Demo\n\n設定真實環境變數即可走真蝦皮 OAuth：\n  SHOPEE_PARTNER_ID\n  SHOPEE_PARTNER_KEY\n\n繼續 Mock 流程？')) return;
+    }
+    window.location.href = r.url;
+  } catch (e) { toast('✗ ' + e.message); }
+};
+
+async function loadConnections() {
+  try {
+    const r = await api.listConnections();
+    const wrap = document.getElementById('conn-list');
+    const mockBanner = r.mock_mode ? '<div class="info-box" style="background:#FEF3C7;color:#92400E">🧪 目前是 Mock 模式 — 設定環境變數 SHOPEE_PARTNER_ID 與 SHOPEE_PARTNER_KEY 後即走真實 OAuth</div>' : '';
+    if (!r.items.length) {
+      wrap.innerHTML = mockBanner + `<div style="text-align:center;color:var(--text-muted);padding:24px">尚未綁定任何店家</div>`;
+      return;
+    }
+    wrap.innerHTML = mockBanner + r.items.map(c => `
+      <div class="conn-card">
+        <div class="info">
+          <div class="name">${c.shop_name}${c.mock?'<span class="mock-tag">MOCK</span>':''}</div>
+          <div class="meta">Shop ID: ${c.shop_id} · 綁定於 ${c.connected_at.slice(0,16).replace('T',' ')} · Token 到期 ${c.expires_at.slice(0,16).replace('T',' ')}</div>
+        </div>
+        <button class="btn" onclick="onDisconnect('${c.shop_id}')" style="padding:4px 12px;font-size:12px">解除綁定</button>
+      </div>`).join('');
+  } catch (e) {
+    showError('conn-list', '載入失敗：' + e.message);
+  }
+}
+
+window.onDisconnect = async function(shopId) {
+  if (!confirm('解除綁定 shop ' + shopId + ' ?')) return;
+  try { await api.disconnectShop(shopId); toast('✓ 已解除'); loadConnections(); }
+  catch (e) { toast('✗ ' + e.message); }
+};
+
+// 從 OAuth callback 回來會帶 ?connected=xxx
+const urlParams = new URLSearchParams(location.search);
+if (urlParams.has('connected')) {
+  setTimeout(() => toast('✓ 已綁定 shop ' + urlParams.get('connected')), 600);
+  history.replaceState({}, '', location.pathname);
+}
+
+/* ────────── CSV 上傳 ────────── */
+const dz = document.getElementById('dropzone');
+const fi = document.getElementById('file-input');
+if (dz) {
+  dz.addEventListener('click', () => fi.click());
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('drag');
+    if (e.dataTransfer.files.length) handleUpload(e.dataTransfer.files[0]);
+  });
+  fi.addEventListener('change', e => { if (e.target.files.length) handleUpload(e.target.files[0]); });
+}
+
+async function handleUpload(file, force = false) {
+  const shop = document.getElementById('upload-shop').value;
+  const result = document.getElementById('upload-result');
+  result.innerHTML = `<div class="info-box">⏳ 上傳中：${file.name}${force?'（強制覆蓋）':''}</div>`;
+  try {
+    const r = await api.uploadAdReport(shop, file, { force });
+    const s = r.summary || {};
+    const fmt = (n) => (n == null ? '—' : n.toLocaleString());
+    const mappedCount = Object.values(r.column_map || {}).filter(Boolean).length;
+    const totalCols = (r.raw_columns || r.columns || []).length;
+    const dr = s.date_range ? `${s.date_range[0]} ~ ${s.date_range[1]}` : '—';
+    const previewKeys = ['date','product_id','product_name','impressions','clicks','spend','revenue','roas'];
+
+    // Lifetime 警告（多日彙總報表）
+    let lifetimeWarn = '';
+    if (s.is_lifetime_report) {
+      lifetimeWarn = `
+        <div class="info-box" style="background:#FED7AA;color:#9A3412;margin-bottom:8px">
+          ⚠️ <strong>偵測到多日彙總報表（${s.period_days} 天）</strong><br>
+          <span style="font-size:12px">這份是「廣告活動 lifetime 統計」涵蓋 ${s.report_period_start} ~ ${s.report_period_end}（${s.period_days} 天累積）。
+          每筆數字都是 ${s.period_days} 天總和，不是單日。<br>
+          <strong>建議：下次匯出時，期間選「單一天」</strong>（例如今天匯昨天 ~ 昨天），這樣每天的數字才是「當天的」，KPI 趨勢才不會被多日數字覆蓋。
+          系統暫時用「期間結束日」當代表日期。</span>
+        </div>`;
+    }
+    result.innerHTML = `
+      ${lifetimeWarn}
+      <div class="info-box" style="background:#DCFCE7;color:#166534">
+        ✓ 解析成功 · <strong>${fmt(s.row_count)}</strong> 筆 · 編碼 <code>${r.encoding||'-'}</code>
+        · 跳過 ${r.skipped_rows||0} 筆 · ${(r.size_bytes/1024).toFixed(1)} KB
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin:10px 0">
+        <div class="stat-cell"><div class="stat-label">日期範圍</div><div class="stat-value" style="font-size:13px">${dr}</div></div>
+        <div class="stat-cell"><div class="stat-label">商品數</div><div class="stat-value">${fmt(s.products)}</div></div>
+        <div class="stat-cell"><div class="stat-label">總花費</div><div class="stat-value">$${fmt(s.total_spend)}</div></div>
+        <div class="stat-cell"><div class="stat-label">總營收</div><div class="stat-value">$${fmt(s.total_revenue)}</div></div>
+        <div class="stat-cell"><div class="stat-label">ROAS</div><div class="stat-value">${s.roas?.toFixed(2)||'—'}</div></div>
+        <div class="stat-cell"><div class="stat-label">CTR</div><div class="stat-value">${s.ctr!=null?(s.ctr*100).toFixed(2)+'%':'—'}</div></div>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">
+        欄位映射：<strong>${mappedCount}</strong> / ${totalCols} 已識別
+        ${mappedCount < totalCols ? `<span style="color:#D97706"> · 未識別：${(r.raw_columns||r.columns||[]).filter(c => !r.column_map?.[c]).slice(0,5).join('、')}</span>` : ''}
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">前 5 筆解析後預覽：</div>
+      <div style="overflow:auto;max-height:240px;border:1px solid var(--border);border-radius:6px">
+        <table style="font-size:11px">
+          <thead><tr>${previewKeys.map(c => `<th>${c}</th>`).join('')}</tr></thead>
+          <tbody>${(r.preview||[]).map(row => `<tr>${previewKeys.map(c => {
+            const v = row[c];
+            if (v == null || v === '') return '<td>—</td>';
+            return `<td>${typeof v === 'number' ? v.toLocaleString() : v}</td>`;
+          }).join('')}</tr>`).join('')}</tbody>
+        </table>
+      </div>
+      <div style="margin-top:10px;padding:10px;background:#FEF3C7;border-radius:6px;font-size:12px;color:#92400E">
+        ✓ 此筆資料已併入儀表板。回到「首頁 KPI」可看到加入這份報表後的真實數值。
+      </div>`;
+    loadUploads();
+  } catch (e) {
+    if (e.code === 'DUPLICATE') {
+      // 重複上傳 → 給選擇
+      result.innerHTML = `
+        <div class="info-box" style="background:#FED7AA;color:#9A3412">
+          ⚠️ ${e.message}
+          <div style="margin-top:10px;display:flex;gap:8px">
+            <button class="btn" onclick="document.getElementById('upload-result').innerHTML=''" style="padding:5px 12px;font-size:12px">取消（不覆蓋）</button>
+            <button class="btn btn-primary" onclick='handleUpload(window._lastUploadFile, true)' style="padding:5px 12px;font-size:12px">仍要上傳（會加倍計算）</button>
+          </div>
+        </div>`;
+      window._lastUploadFile = file;  // 暫存讓「仍要上傳」按鈕用
+      return;
+    }
+    result.innerHTML = `<div class="info-box" style="background:#FEE2E2;color:#991B1B">✗ ${e.message}</div>`;
+  }
+}
+
+/* ────────── Shopee Open API 設定狀態 ────────── */
+async function loadShopeeStatus() {
+  try {
+    const s = await api.getShopeeStatus();
+    const ready = s.ready;
+    let html = '';
+    if (ready) {
+      html = `
+        <div style="padding:8px 12px;background:#DCFCE7;border-radius:6px;margin-bottom:10px">
+          <span style="display:inline-block;padding:3px 8px;background:#16A34A;color:#fff;border-radius:10px;font-size:11px;font-weight:600">● 真實 API 已啟用</span>
+          <span style="margin-left:10px;font-size:12px;color:#166534">已綁定 ${s.connected_shops} 個 shop</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted)">點下方按鈕同步商品資料（rating / stock / reviews）</div>
+        <div id="shopee-sync-buttons" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px"></div>
+      `;
+    } else {
+      html = `
+        <div style="padding:8px 12px;background:#FEF3C7;border-radius:6px;margin-bottom:10px">
+          <span style="display:inline-block;padding:3px 8px;background:#94A3B8;color:#fff;border-radius:10px;font-size:11px;font-weight:600">○ Mock 模式</span>
+          <span style="margin-left:10px;font-size:12px;color:#92400E">沒設 partner_id，同步商品會回傳假資料</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted)">
+          檢查清單：
+          <ul style="margin:6px 0 0 18px;padding:0">
+            <li>SHOPEE_PARTNER_ID 環境變數：${s.partner_id_set ? '✓' : '✗ 未設'}</li>
+            <li>SHOPEE_PARTNER_KEY 環境變數：${s.partner_key_set ? '✓' : '✗ 未設'}</li>
+            <li>API Host：<code>${s.api_host}</code></li>
+          </ul>
+        </div>
+        <div style="margin-top:12px;padding:10px;background:#F1F5F9;border-radius:6px;font-size:11px;color:#475569">
+          <strong>啟用真實 API：</strong>
+          <ol style="margin:6px 0 0 18px;padding:0">
+            <li>到 <a href="https://open.shopee.com" target="_blank">open.shopee.com</a> 註冊 Partner 帳號</li>
+            <li>建立 App，拿 partner_id + partner_key（蝦皮審核 5-10 工作天）</li>
+            <li>停 server，設環境變數重啟：<br>
+              <code>set SHOPEE_PARTNER_ID=your_id</code><br>
+              <code>set SHOPEE_PARTNER_KEY=your_key</code><br>
+              <code>python server.py</code>
+            </li>
+            <li>賣家在「整合與設定」綁定店家（OAuth）→ 即可同步</li>
+          </ol>
+          <strong style="display:block;margin-top:8px;color:#7C2D12">⚠️ 蝦皮 Open API 不提供廣告數據（花費/ROAS/點擊），只能補商品/訂單。廣告數據請繼續用 CSV 上傳或資料夾自動處理。</strong>
+        </div>`;
+    }
+    document.getElementById('shopee-status-box').innerHTML = html;
+
+    // 如果 ready，列出綁定 shop 的同步按鈕
+    if (ready) {
+      const conns = await api.listConnections();
+      const wrap = document.getElementById('shopee-sync-buttons');
+      if (wrap) {
+        wrap.innerHTML = (conns.items || []).map(c =>
+          `<button class="btn btn-primary" style="padding:5px 12px;font-size:11px" onclick="syncShopeeShop('${c.shop_id}')">🔄 同步 ${c.shop_name}</button>`
+        ).join('') || '<span style="font-size:12px;color:var(--text-muted)">尚未綁定任何 shop</span>';
+      }
+    }
+  } catch (e) {
+    document.getElementById('shopee-status-box').innerHTML =
+      `<div class="info-box" style="background:#FEE2E2;color:#991B1B">✗ ${e.message}</div>`;
+  }
+}
+
+window.syncShopeeShop = async function(shopId) {
+  try {
+    const r = await api.syncShopeeProducts(shopId);
+    toast(`✓ 同步 ${r.synced} 個商品 (${r.mode})`);
+  } catch (e) { toast('✗ ' + e.message); }
+};
+
+/* ────────── SendGrid Email 設定狀態 ────────── */
+async function loadEmailStatus() {
+  try {
+    const s = await api.getEmailStatus();
+    const ready = s.ready;
+    const mode = s.mode;
+
+    let html = '';
+    if (ready) {
+      html = `
+        <div style="padding:8px 12px;background:#DCFCE7;border-radius:6px;margin-bottom:10px">
+          <span style="display:inline-block;padding:3px 8px;background:#16A34A;color:#fff;border-radius:10px;font-size:11px;font-weight:600">● 真實寄送已啟用</span>
+          <span style="margin-left:10px;font-size:12px;color:#166534">寄件人：<code>${s.from_email}</code></span>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted)">
+          月報「📤 寄出月報」按鈕會透過 SendGrid 真實寄送到客戶 email。
+        </div>`;
+    } else {
+      html = `
+        <div style="padding:8px 12px;background:#FEF3C7;border-radius:6px;margin-bottom:10px">
+          <span style="display:inline-block;padding:3px 8px;background:#94A3B8;color:#fff;border-radius:10px;font-size:11px;font-weight:600">○ Mock 模式</span>
+          <span style="margin-left:10px;font-size:12px;color:#92400E">月報「寄出」只會記到 log，不會真寄</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted)">
+          檢查清單：
+          <ul style="margin:6px 0 0 18px;padding:0">
+            <li>SDK 已裝：${s.sdk_installed ? '✓' : '✗ 請 <code>pip install sendgrid</code>'}</li>
+            <li>SENDGRID_API_KEY 環境變數：${s.api_key_set ? '✓' : '✗ 未設定'}</li>
+            <li>SENDGRID_FROM_EMAIL 環境變數：${s.from_email ? '✓ <code>'+s.from_email+'</code>' : '✗ 未設定'}</li>
+          </ul>
+        </div>
+        <div style="margin-top:12px;padding:10px;background:#F1F5F9;border-radius:6px;font-size:11px;color:#475569">
+          <strong>啟用真實寄送：</strong>
+          <ol style="margin:6px 0 0 18px;padding:0">
+            <li>到 <a href="https://signup.sendgrid.com" target="_blank">sendgrid.com</a> 註冊免費帳號（每天 100 封免費）</li>
+            <li>Settings → API Keys → 建立新 key（複製出來，只會顯示一次）</li>
+            <li>Settings → Sender Authentication → 驗證寄件信箱</li>
+            <li>停掉 server，設環境變數後重啟：<br>
+              <code>set SENDGRID_API_KEY=SG.xxx</code><br>
+              <code>set SENDGRID_FROM_EMAIL=you@verified.com</code><br>
+              <code>python server.py</code>
+            </li>
+          </ol>
+        </div>`;
+    }
+    document.getElementById('email-status-box').innerHTML = html;
+  } catch (e) {
+    document.getElementById('email-status-box').innerHTML =
+      `<div class="info-box" style="background:#FEE2E2;color:#991B1B">✗ ${e.message}</div>`;
+  }
+}
+
+/* ────────── 資料夾自動上傳 watcher ────────── */
+let watcherTimer = null;
+async function loadWatcher() {
+  try {
+    const s = await api.getWatcherStatus();
+    document.getElementById('watch-dir-display').textContent = s.watch_dir + '\\{shop_name}\\';
+    const enabled = s.enabled && s.task_alive;
+    const toggleBtn = document.getElementById('watcher-toggle');
+    toggleBtn.textContent = enabled ? '⏸ 停用' : '▶ 啟用';
+    toggleBtn.onclick = enabled ? watcherStop : watcherStart;
+
+    const lastScan = s.last_scan_at ? s.last_scan_at.slice(0, 19).replace('T', ' ') : '—';
+    const statusBadge = enabled
+      ? `<span style="display:inline-block;padding:3px 8px;background:#16A34A;color:#fff;border-radius:10px;font-size:11px;font-weight:600">● 監看中（每 ${s.scan_interval}s 掃描）</span>`
+      : `<span style="display:inline-block;padding:3px 8px;background:#94A3B8;color:#fff;border-radius:10px;font-size:11px;font-weight:600">○ 已停用</span>`;
+
+    // 顯示多 root 列表
+    const roots = s.roots || [{path: s.watch_dir, is_main: true, exists: true, shops: s.shops || []}];
+    let rootsHtml = `<div style="margin-top:6px">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">
+        監看 <strong>${roots.length}</strong> 個目錄（含主目錄）·
+        <button class="btn" style="padding:3px 8px;font-size:11px;margin-left:8px" onclick="onAddWatchDir()">+ 新增監看目錄</button>
+        <span style="margin-left:8px;font-size:11px;color:#2563EB" title="把這個欄位設成 G:\\我的雲端硬碟\\蝦皮報表 等同步路徑，雲端就能上傳">💡 支援 Google Drive / OneDrive / Dropbox 同步路徑</span>
+      </div>`;
+    for (const root of roots) {
+      const shopRows = root.shops.length
+        ? `<table style="font-size:11px;margin-top:4px">
+            <thead><tr><th>子資料夾</th><th class="num">待處理</th><th class="num">已處理</th><th class="num">失敗</th></tr></thead>
+            <tbody>${root.shops.map(sh => `
+              <tr>
+                <td>${sh.valid ? '' : '<span title="名稱含禁用字元，會被略過" style="color:#D97706">⚠ </span>'}<code>${sh.name}</code></td>
+                <td class="num">${sh.pending > 0 ? `<strong style="color:var(--accent)">${sh.pending}</strong>` : '0'}</td>
+                <td class="num" style="color:var(--good)">${sh.processed}</td>
+                <td class="num ${sh.failed>0?'roas-bad':''}">${sh.failed}</td>
+              </tr>`).join('')}</tbody>
+          </table>`
+        : `<div style="font-size:11px;color:var(--text-muted);padding:6px">（空，建立子資料夾如 <code>${root.path}\\S001</code> 即可）</div>`;
+      rootsHtml += `
+        <div style="margin-top:8px;padding:8px 10px;background:${root.is_main?'#F0FDF4':'#EFF6FF'};border-radius:6px;border-left:3px solid ${root.is_main?'#16A34A':'#2563EB'}">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="font-size:12px;font-weight:600">
+              ${root.is_main ? '🏠' : '☁️'} <code style="font-size:11px">${root.path}</code>
+              ${!root.exists ? '<span style="color:#DC2626;margin-left:6px">⚠ 不存在</span>' : ''}
+            </div>
+            ${!root.is_main ? `<button class="btn" style="padding:3px 8px;font-size:11px;color:#DC2626" onclick="onRemoveWatchDir('${root.path.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">移除</button>` : ''}
+          </div>
+          ${shopRows}
+        </div>`;
+    }
+    rootsHtml += '</div>';
+    let shopHtml = rootsHtml;
+
+    let recentHtml = '';
+    if (s.recent.length) {
+      recentHtml = `<div style="margin-top:14px">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">最近處理 ${s.recent.length} 筆：</div>
+        <div style="max-height:180px;overflow:auto;font-size:11px;background:#F8FAFC;border-radius:6px;padding:8px">
+          ${s.recent.map(r => {
+            const icon = r.status === 'ok' ? '✓' : (r.status === 'fail' ? '✗' : '⏭');
+            const color = r.status === 'ok' ? 'var(--good)' : 'var(--bad)';
+            const detail = r.status === 'ok' ? `${r.rows} 筆` : (r.error || '');
+            return `<div style="margin-bottom:3px"><span style="color:${color};font-weight:600">${icon}</span> <code>${r.file}</code> · ${detail} <span style="color:#94A3B8">${r.at.slice(11,19)}</span></div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    }
+
+    document.getElementById('watcher-status-box').innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div>${statusBadge}</div>
+        <div style="font-size:11px;color:var(--text-muted)">最後掃描：${lastScan} · 累計掃描 ${s.scan_count} 次</div>
+      </div>
+      ${shopHtml}
+      ${recentHtml}`;
+  } catch (e) {
+    document.getElementById('watcher-status-box').innerHTML =
+      `<div class="info-box" style="background:#FEE2E2;color:#991B1B">✗ ${e.message}</div>`;
+  }
+}
+
+window.onAddWatchDir = async function() {
+  const path = prompt('請輸入要監看的目錄完整路徑\n\n常見範例：\n  • G:\\我的雲端硬碟\\蝦皮報表\n  • C:\\Users\\你\\OneDrive\\客戶報表\n  • D:\\Dropbox\\Shopee CSV\n\n資料夾下要建立子資料夾（= 店家名稱），CSV 拖進對應子資料夾即自動處理。');
+  if (!path) return;
+  try {
+    await api.addWatchDir(path);
+    toast('✓ 已加入監看：' + path);
+    loadWatcher();
+  } catch (e) { toast('✗ ' + e.message); }
+};
+
+window.onRemoveWatchDir = async function(path) {
+  if (!confirm('停止監看此目錄？\n' + path + '\n（資料夾內檔案不會被刪除）')) return;
+  try {
+    await api.removeWatchDir(path);
+    toast('✓ 已移除監看：' + path);
+    loadWatcher();
+  } catch (e) { toast('✗ ' + e.message); }
+};
+
+async function watcherStart() {
+  try { await api.startWatcher(5); toast('✓ 已啟用監看'); loadWatcher(); loadUploads(); }
+  catch (e) { toast('✗ ' + e.message); }
+}
+async function watcherStop() {
+  try { await api.stopWatcher(); toast('✓ 已停用監看'); loadWatcher(); }
+  catch (e) { toast('✗ ' + e.message); }
+}
+async function watcherScanNow() {
+  try {
+    const r = await api.scanWatcherNow();
+    toast(`✓ 掃描完成 · 處理 ${r.scanned} 個檔案 · 成功 ${r.succeeded} · 失敗 ${r.failed}`);
+    loadWatcher();
+    loadUploads();
+  } catch (e) { toast('✗ ' + e.message); }
+}
+
+async function loadUploads() {
+  try {
+    const r = await api.listUploads();
+    const wrap = document.getElementById('upload-list');
+    if (!r.items.length) {
+      wrap.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:24px">尚無上傳紀錄</div>`;
+      return;
+    }
+    wrap.innerHTML = `
+      <table>
+        <thead><tr><th>檔名</th><th>店家</th><th>類型</th><th>期間</th><th>筆數</th><th>大小</th><th>上傳時間</th></tr></thead>
+        <tbody>${r.items.map(u => {
+          const sm = u.summary || {};
+          const isLifetime = sm.is_lifetime_report;
+          const days = sm.period_days;
+          const typeBadge = isLifetime
+            ? `<span title="多日彙總，可能造成日趨勢膨脹" style="background:#FED7AA;color:#9A3412;padding:2px 6px;border-radius:8px;font-size:10px">⚠ ${days} 日彙總</span>`
+            : `<span style="background:#DCFCE7;color:#166534;padding:2px 6px;border-radius:8px;font-size:10px">✓ 單日</span>`;
+          const periodStr = sm.report_period_start && sm.report_period_end
+            ? (sm.report_period_start === sm.report_period_end
+                ? sm.report_period_start
+                : `${sm.report_period_start} ~ ${sm.report_period_end}`)
+            : '—';
+          const rowCount = sm.row_count != null ? sm.row_count : (u.row_count || 0);
+          const sizeKB = u.size_bytes != null ? (u.size_bytes/1024).toFixed(1) + ' KB' : '—';
+          return `
+          <tr>
+            <td style="font-size:12px">${u.filename}</td>
+            <td>${u.shop}</td>
+            <td>${typeBadge}</td>
+            <td class="num" style="font-size:12px">${periodStr}</td>
+            <td class="num">${rowCount}</td>
+            <td class="num">${sizeKB}</td>
+            <td class="num" style="font-size:12px">${u.uploaded_at.slice(0,16).replace('T',' ')}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>`;
+  } catch (e) {
+    showError('upload-list', '載入失敗：' + e.message);
+  }
+}
+
+/* ────────── 競品設定 ────────── */
+window.openCompetitorModal = function() {
+  ['comp-name','comp-shopid','comp-url','comp-kw','comp-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('comp-cat').value = '';
+  openModal('competitor-modal');
+};
+
+window.submitCompetitor = async function() {
+  const name = document.getElementById('comp-name').value.trim();
+  if (!name) { toast('店家名稱必填'); return; }
+  try {
+    await api.addCompetitor({
+      shop_name: name,
+      shop_id: document.getElementById('comp-shopid').value.trim() || null,
+      shop_url: document.getElementById('comp-url').value.trim() || null,
+      category: document.getElementById('comp-cat').value || null,
+      notes: document.getElementById('comp-notes').value.trim() || null,
+      track_keywords: document.getElementById('comp-kw').value.split(',').map(s=>s.trim()).filter(Boolean),
+    });
+    closeModal('competitor-modal');
+    toast('✓ 已新增競品');
+    loadCompetitorList();
+  } catch (e) { toast('✗ ' + e.message); }
+};
+
+async function loadCompetitorList() {
+  try {
+    const r = await api.listCompetitors();
+    const wrap = document.getElementById('competitor-list');
+    if (!r.items.length) {
+      wrap.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:24px">尚未指定任何競品 · 點右上「+ 新增競品」開始追蹤</div>`;
+      return;
+    }
+    wrap.innerHTML = `
+      <table>
+        <thead><tr><th>店家</th><th>類目</th><th>追蹤關鍵字</th><th>商品數</th><th>均價</th><th>月銷量</th><th>備註</th><th></th></tr></thead>
+        <tbody>${r.items.map(c => `
+          <tr>
+            <td><div style="font-weight:500">${c.shop_name}</div>${c.shop_id?`<div style="font-size:11px;color:var(--text-muted)">ID: ${c.shop_id}</div>`:''}</td>
+            <td>${c.category || '—'}</td>
+            <td>${(c.track_keywords||[]).map(k=>`<span class="event-tag tag-tip" style="margin:1px">${k}</span>`).join('') || '—'}</td>
+            <td class="num">${c.last_snapshot.product_count}</td>
+            <td class="num">$${c.last_snapshot.avg_price}</td>
+            <td class="num">${c.last_snapshot.monthly_orders}</td>
+            <td style="font-size:12px;color:var(--text-secondary);max-width:160px">${c.notes || '—'}</td>
+            <td><button class="btn" onclick="onRemoveCompetitor('${c.id}')" style="padding:4px 10px;font-size:11px">移除</button></td>
+          </tr>`).join('')}</tbody>
+      </table>`;
+  } catch (e) {
+    showError('competitor-list', '載入失敗：' + e.message);
+  }
+}
+
+window.onRemoveCompetitor = async function(cid) {
+  if (!confirm('移除此競品？')) return;
+  try { await api.removeCompetitor(cid); toast('✓ 已移除'); loadCompetitorList(); }
+  catch (e) { toast('✗ ' + e.message); }
+};
+
+/* ════════════════════════════════════════════════════════════════════════
+   專業代操新功能 — 真實毛利 / 健康度 / 規則 / 關鍵字 / 受眾 / CRM / 團隊 / 跨平台
+   ═══════════════════════════════════════════════════════════════════════ */
+
+// 共用：source badge HTML（real=綠色、mock=灰色）
+function sourceBadge(meta, extraInfo = '') {
+  if (!meta) return '';
+  const isReal = meta.source === 'real';
+  const bg = isReal ? '#16A34A' : '#94A3B8';
+  const dot = isReal ? '●' : '○';
+  const label = isReal ? '真實 CSV 資料' : 'Demo 範例資料';
+  const info = extraInfo || (meta.row_count ? `（${meta.row_count} 筆）` : '');
+  return `<div style="margin-bottom:8px"><span style="display:inline-block;padding:3px 8px;background:${bg};color:#fff;border-radius:10px;font-size:11px;font-weight:600">${dot} ${label}${info}</span></div>`;
+}
+
+/* ────────── 真實獲利卡 ────────── */
+async function loadProfitCards(period='week') {
+  _currentPeriod = period;
+  try {
+    const shop = _getCurrentShop();
+    const p = await api.getProfitSummary(period, shop ? { shop } : {});
+    // 賺/賠看「淨利」是否 > 0，ROI < 1 只代表廣告效率低但仍可能賺錢
+    const isProfit = p.net_profit > 0;
+    const profitDeltaCls = isProfit ? 'delta-up' : 'delta-down';
+    const profitLabel = isProfit
+      ? (p.real_roi >= 1 ? '✓ 賺錢' : '✓ 賺錢（廣告效率偏低）')
+      : '⚠ 虧損';
+    const m = p._meta || {};
+    const matched = m.products_with_cost_config != null
+      ? `（成本設定 ${m.products_with_cost_config}/${m.products}）` : '';
+    document.getElementById('profit-cards').innerHTML = `
+      <div style="grid-column:1/-1">${sourceBadge(m, matched)}</div>
+      <div class="kpi"><div class="kpi-label">真實 ROI</div>
+        <div class="kpi-value">${p.real_roi}x</div>
+        <div class="kpi-meta"><span class="${profitDeltaCls}">${profitLabel}</span> · 含所有成本</div></div>
+      <div class="kpi"><div class="kpi-label">淨利</div>
+        <div class="kpi-value" style="color:${p.net_profit>=0?'var(--good)':'var(--bad)'}">${fmt$(p.net_profit)}</div>
+        <div class="kpi-meta">營收 - 廣告 - 成本 - 抽成</div></div>
+      <div class="kpi"><div class="kpi-label">毛利率</div>
+        <div class="kpi-value">${p.gross_margin}%</div>
+        <div class="kpi-meta">(營收 - 商品成本) / 營收</div></div>
+      <div class="kpi"><div class="kpi-label">廣告利潤率</div>
+        <div class="kpi-value">${p.ad_profit_margin}%</div>
+        <div class="kpi-meta">淨利 / 營收</div></div>`;
+  } catch (e) {
+    showError('profit-cards', '載入失敗：' + e.message);
+  }
+}
+
+/* ────────── AI 顧問建議 ────────── */
+async function loadAiBadge() {
+  try {
+    const s = await api.getAiStatus();
+    const badge = document.getElementById('ai-mode-badge');
+    if (badge) {
+      if (s.ready) badge.innerHTML = `<span style="background:#16A34A;color:#fff;padding:2px 8px;border-radius:8px">● Claude (${s.model})</span>`;
+      else badge.innerHTML = `<span style="background:#94A3B8;color:#fff;padding:2px 8px;border-radius:8px">○ 規則式（沒設 ANTHROPIC_API_KEY）</span>`;
+    }
+  } catch (e) { /* 靜默 */ }
+}
+
+window.onGenerateAiInsights = async function() {
+  const box = document.getElementById('ai-insights-box');
+  box.innerHTML = '<div style="padding:8px;color:var(--text-muted)">⏳ AI 分析中…（首次呼叫可能需 5-10 秒）</div>';
+  try {
+    const body = { period: _currentPeriod || 'month' };
+    if (_currentCustomer) body.customer_id = _currentCustomer.id;
+    const r = await api.getAiInsights(body);
+    const meta = r._meta || {};
+    const isReal = meta.source === 'claude';
+    const srcBadge = isReal
+      ? `<span style="background:#16A34A;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px">● Claude</span>`
+      : `<span style="background:#94A3B8;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px">○ 規則式分析</span>`;
+    const usage = meta.usage || {};
+    const usageStr = isReal && usage.input_tokens
+      ? `<span style="font-size:10px;color:var(--text-muted);margin-left:8px">in:${usage.input_tokens} out:${usage.output_tokens} cache_read:${usage.cache_read_input_tokens||0}</span>`
+      : '';
+
+    const renderList = (items, color, icon) => `
+      <ul style="margin:4px 0;padding-left:22px">
+        ${(items||[]).map(x => `<li style="margin:6px 0;color:${color}"><span style="margin-right:6px">${icon}</span>${x}</li>`).join('')}
+      </ul>`;
+
+    box.innerHTML = `
+      <div style="margin-bottom:10px">${srcBadge}${usageStr}
+        ${meta.fallback ? '<span style="background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:8px;font-size:10px;margin-left:6px">⚠️ Claude 失敗，使用規則式 fallback</span>' : ''}
+        ${meta.parse_error ? '<span style="background:#FEE2E2;color:#991B1B;padding:2px 8px;border-radius:8px;font-size:10px;margin-left:6px">⚠️ JSON 解析失敗</span>' : ''}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+        <div style="padding:12px;background:#FEE2E2;border-radius:8px;border-left:4px solid #DC2626">
+          <div style="font-weight:600;font-size:13px;margin-bottom:4px;color:#991B1B">🔍 診斷</div>
+          ${renderList(r.diagnosis, '#7F1D1D', '·')}
+        </div>
+        <div style="padding:12px;background:#FEF3C7;border-radius:8px;border-left:4px solid #D97706">
+          <div style="font-weight:600;font-size:13px;margin-bottom:4px;color:#92400E">⚡ 立即動作</div>
+          ${renderList(r.immediate_actions, '#78350F', '→')}
+        </div>
+        <div style="padding:12px;background:#DBEAFE;border-radius:8px;border-left:4px solid #2563EB">
+          <div style="font-weight:600;font-size:13px;margin-bottom:4px;color:#1E40AF">📅 本週計畫</div>
+          ${renderList(r.this_week_plan, '#1E3A8A', '✓')}
+        </div>
+      </div>`;
+  } catch (e) {
+    box.innerHTML = `<div class="info-box" style="background:#FEE2E2;color:#991B1B">✗ ${e.message}</div>`;
+  }
+};
+
+/* ────────── 商品成本設定 (profit_config) ────────── */
+window.togglePcfgPanel = function() {
+  const panel = document.getElementById('pcfg-panel');
+  const toggle = document.getElementById('pcfg-toggle');
+  if (panel.style.display === 'none') {
+    panel.style.display = 'block';
+    toggle.textContent = '▲';
+    loadProfitConfig();
+  } else {
+    panel.style.display = 'none';
+    toggle.textContent = '▼';
+  }
+};
+
+async function loadProfitConfig() {
+  try {
+    const shop = _getCurrentShop();
+    const r = await api.getProfitConfig(shop ? { shop, days: 90 } : { days: 90 });
+    const cfg = r.items || {};
+    const missing = r.missing_in_csv || [];
+    const meta = r._meta || {};
+    const periodDays = meta.period_days || 90;
+    const scopeLabel = shop ? `（僅 shop=${shop}）` : '（所有 shop）';
+
+    document.getElementById('pcfg-badge').textContent =
+      `已設定 ${meta.configured} 個 · CSV ${scopeLabel} 缺 ${meta.missing} 個`;
+
+    let missingHtml = '';
+    if (missing.length) {
+      const productNameDisplay = (m) => (m.product_id === m.product_name)
+        ? `<code>${m.product_id}</code> <span style="color:#94A3B8">(無商品名稱)</span>`
+        : `<code>${m.product_id}</code> ${m.product_name}`;
+      missingHtml = `
+        <div style="margin-bottom:14px;padding:10px;background:#FEF3C7;border-radius:6px;font-size:12px">
+          <div style="font-weight:600;margin-bottom:6px;color:#92400E">
+            ⚠️ ${scopeLabel} CSV 中有 ${missing.length} 個商品還沒設定成本，目前用「營收 × 42%」估算
+          </div>
+          <div style="font-size:11px;color:#78350F;margin-bottom:8px">
+            數據範圍：近 ${periodDays} 天 · 建議成本 = 平均售價 × 50%（業界中位數，請依實際毛利調整）
+          </div>
+          <table style="font-size:11px">
+            <thead><tr>
+              <th>商品</th>
+              <th class="num">${periodDays}天 訂單</th>
+              <th class="num">${periodDays}天 營收</th>
+              <th class="num">平均售價</th>
+              <th class="num">建議成本</th>
+              <th></th>
+            </tr></thead>
+            <tbody>${missing.map(m => `
+              <tr id="missing-${m.product_id}">
+                <td>${productNameDisplay(m)}</td>
+                <td class="num">${m.orders}</td>
+                <td class="num">$${m.revenue.toLocaleString()}</td>
+                <td class="num">$${m.suggested.selling_price}</td>
+                <td class="num">$${m.suggested.cost}</td>
+                <td><button class="btn btn-primary" style="padding:3px 10px;font-size:11px" onclick="addProfitCfg('${m.product_id}', ${m.suggested.cost}, ${m.suggested.shipping}, ${m.suggested.selling_price})">+ 套用建議</button></td>
+              </tr>`).join('')}</tbody>
+          </table>
+        </div>`;
+    }
+
+    let configuredHtml = '';
+    const cfgEntries = Object.entries(cfg);
+    if (cfgEntries.length) {
+      configuredHtml = `
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">
+          已設定 ${cfgEntries.length} 個商品（任一欄位修改後按 Enter 即儲存）。
+          <span style="color:#2563EB">💡 % 欄位直接輸入百分比即可（例：輸入 <code>5</code> = 5%；系統自動轉換）</span>
+        </div>
+        <table style="font-size:12px">
+          <thead><tr>
+            <th>商品 ID</th>
+            <th class="num" title="$">售價</th>
+            <th class="num" title="$">每單成本</th>
+            <th class="num" title="$">每單運費</th>
+            <th class="num" title="輸入 5 = 5%">運費 %</th>
+            <th class="num" title="蝦皮抽 5.5%（輸入 5.5）">平台費 %</th>
+            <th class="num" title="刷卡 3%（輸入 3）">刷卡費 %</th>
+            <th></th>
+          </tr></thead>
+          <tbody>${cfgEntries.map(([pid, c]) => `
+            <tr data-pid="${pid}">
+              <td><strong>${pid}</strong></td>
+              <td><input type="number" class="pcfg-input" data-field="selling_price" value="${c.selling_price||0}" style="width:80px;padding:3px 6px;text-align:right" onchange="savePcfgRow('${pid}')"></td>
+              <td><input type="number" class="pcfg-input" data-field="cost" value="${c.cost||0}" style="width:80px;padding:3px 6px;text-align:right" onchange="savePcfgRow('${pid}')"></td>
+              <td><input type="number" class="pcfg-input" data-field="shipping" value="${c.shipping||0}" style="width:80px;padding:3px 6px;text-align:right" onchange="savePcfgRow('${pid}')"></td>
+              <td><input type="number" step="0.1" class="pcfg-input" data-field="shipping_rate" value="${c.shipping_rate||0}" placeholder="0=不用" title="輸入 5 = 5%" style="width:80px;padding:3px 6px;text-align:right" onchange="savePcfgRow('${pid}')"></td>
+              <td><input type="number" step="0.1" class="pcfg-input" data-field="platform_fee_rate" value="${c.platform_fee_rate||5.5}" title="蝦皮預設 5.5%（輸入 5.5）" style="width:80px;padding:3px 6px;text-align:right" onchange="savePcfgRow('${pid}')"></td>
+              <td><input type="number" step="0.1" class="pcfg-input" data-field="payment_fee_rate" value="${c.payment_fee_rate||3}" title="刷卡 3%（輸入 3）" style="width:80px;padding:3px 6px;text-align:right" onchange="savePcfgRow('${pid}')"></td>
+              <td><button class="btn" style="padding:3px 10px;font-size:11px;color:#DC2626" onclick="deletePcfgRow('${pid}')">刪除</button></td>
+            </tr>`).join('')}</tbody>
+        </table>`;
+    } else {
+      configuredHtml = `<div style="text-align:center;color:var(--text-muted);padding:16px;font-size:13px">尚未設定任何商品成本</div>`;
+    }
+
+    document.getElementById('pcfg-panel').innerHTML = missingHtml + configuredHtml;
+  } catch (e) {
+    document.getElementById('pcfg-panel').innerHTML =
+      `<div class="info-box" style="background:#FEE2E2;color:#991B1B">✗ ${e.message}</div>`;
+  }
+}
+
+window.addProfitCfg = async function(pid, cost, shipping, selling_price) {
+  try {
+    await api.updateProfitConfig(pid, {
+      cost, shipping, selling_price,
+      platform_fee_rate: 0.055, payment_fee_rate: 0.03,
+    });
+    toast(`✓ 已套用 ${pid} 建議成本`);
+    loadProfitConfig();
+    loadProfitCards();  // 即時刷新真實獲利
+  } catch (e) { toast('✗ ' + e.message); }
+};
+
+window.savePcfgRow = async function(pid) {
+  const row = document.querySelector(`[data-pid="${pid}"]`);
+  if (!row) return;
+  const body = {};
+  row.querySelectorAll('.pcfg-input').forEach(inp => {
+    body[inp.dataset.field] = parseFloat(inp.value) || 0;
+  });
+  // 警告：fee 設定超過 30 看起來不合理
+  const warnings = [];
+  if (body.platform_fee_rate > 30) warnings.push(`平台費 ${body.platform_fee_rate}% 偏高（蝦皮一般 5.5-7.5%）`);
+  if (body.shipping_rate > 30) warnings.push(`運費 ${body.shipping_rate}% 偏高（一般 5-15%）`);
+  if (body.payment_fee_rate > 10) warnings.push(`刷卡費 ${body.payment_fee_rate}% 偏高（一般 2-3%）`);
+  if (warnings.length) {
+    if (!confirm('⚠️ 偵測到偏高設定：\n\n' + warnings.join('\n') + '\n\n確定要儲存？')) {
+      loadProfitConfig();  // 重載恢復原值
+      return;
+    }
+  }
+  try {
+    await api.updateProfitConfig(pid, body);
+    row.style.background = '#DCFCE7';
+    setTimeout(() => row.style.background = '', 800);
+    loadProfitCards();
+  } catch (e) {
+    row.style.background = '#FEE2E2';
+    toast('✗ ' + e.message);
+  }
+};
+
+window.deletePcfgRow = async function(pid) {
+  if (!confirm(`刪除 ${pid} 的成本設定？`)) return;
+  try {
+    await api.deleteProfitConfig(pid);
+    toast(`✓ 已刪除 ${pid}`);
+    loadProfitConfig();
+    loadProfitCards();
+  } catch (e) { toast('✗ ' + e.message); }
+};
+
+/* ────────── 商品健康度 ────────── */
+async function loadHealth() {
+  try {
+    const shop = _getCurrentShop();
+    const r = await api.getHealthScores(shop ? { shop } : {});
+    // 在表格上方插入 source badge（如果有 health-list 容器）
+    const badgeWrap = document.getElementById('health-source-badge');
+    if (badgeWrap) {
+      const m = r._meta || {};
+      const info = m.source === 'real'
+        ? `（${m.products} 商品 · 評分/庫存/價競力為估算值）`
+        : '';
+      badgeWrap.innerHTML = sourceBadge(m, info);
+    }
+    document.getElementById('health-tbody').innerHTML = r.items.map(p => {
+      const recCls = {'強投':'roas-good','正常':'trend-flat','減投':'roas-warn','停投':'roas-bad'}[p.recommendation];
+      const recIcon = {'強投':'🟢','正常':'⚪','減投':'🟡','停投':'🔴'}[p.recommendation];
+      return `<tr>
+        <td><strong>${p.name}</strong></td>
+        <td><span class="badge ${p.shop.startsWith('自家')?'badge-own':'badge-client'}">${p.shop}</span></td>
+        <td class="num">⭐ ${p.rating}</td>
+        <td class="num">${p.reviews}</td>
+        <td class="num ${p.stock<20?'roas-bad':''}">${p.stock}</td>
+        <td class="num">${p.price_competitiveness}</td>
+        <td class="num">${p.sales_30d}</td>
+        <td class="num"><strong style="font-size:16px">${p.health_score}</strong> / 100</td>
+        <td><span class="${recCls}" style="font-weight:600">${recIcon} ${p.recommendation}</span></td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    showError('health-tbody', '載入失敗：' + e.message);
+  }
+}
+
+/* ────────── 預算燒爆預警 + 規則引擎 ────────── */
+async function loadBudgetPacing() {
+  try {
+    const shop = _getCurrentShop();
+    const [pacing, alerts] = await Promise.all([
+      api.getBudgetPacing(shop ? { shop } : {}),
+      api.getBudgetAlerts(),
+    ]);
+    const badgeWrap = document.getElementById('budget-source-badge');
+    if (badgeWrap) badgeWrap.innerHTML = sourceBadge(pacing._meta);
+    const alertBox = document.getElementById('budget-alerts-box');
+    if (alerts.items.length === 0) {
+      alertBox.innerHTML = `<div class="info-box" style="background:#DCFCE7;color:#166534;margin:16px 0">✓ 目前所有帳號預算燒爆速率正常</div>`;
+    } else {
+      alertBox.innerHTML = `<div class="info-box" style="background:#FEE2E2;color:#991B1B;margin:16px 0">
+        🚨 ${alerts.items.length} 筆警示：${alerts.items.map(a => `<div style="margin-top:4px">${a.level==='critical'?'🔴':'🟡'} <strong>${a.shop}</strong> · ${a.msg}</div>`).join('')}
+      </div>`;
+    }
+    document.getElementById('pacing-tbody').innerHTML = pacing.items.map(p => {
+      const statusBadge = p.status==='danger' ? '<span class="roas-bad">🔴 危險</span>' :
+                          p.status==='warn'   ? '<span class="roas-warn">🟡 警示</span>' :
+                                                '<span class="roas-good">🟢 正常</span>';
+      const fb = p._meta?.fallback_day_date
+        ? `<span style="font-size:10px;color:#D97706;margin-left:4px" title="今日無資料，顯示為 ${p._meta.fallback_day_date}">📅 ${p._meta.fallback_day_date}</span>`
+        : '';
+      return `<tr>
+        <td>${p.shop_name}</td>
+        <td class="num">$${p.daily_budget}</td>
+        <td class="num">$${p.burn_today}${fb}</td>
+        <td class="num ${p.burn_rate_pct>100?'roas-bad':p.burn_rate_pct>80?'roas-warn':'roas-good'}">${p.burn_rate_pct}%</td>
+        <td class="num">${p.predicted_depletion_hour < 24 ? p.predicted_depletion_hour + ' 點' : '可撐到 24:00'}</td>
+        <td>${statusBadge}</td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    showError('pacing-tbody', '載入失敗：' + e.message);
+  }
+}
+
+async function loadRules() {
+  try {
+    const r = await api.listRules();
+    const wrap = document.getElementById('rules-list');
+    if (!r.items.length) {
+      wrap.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:24px">尚未設定任何規則 · 點右上「+ 新增規則」開始</div>`;
+      return;
+    }
+    const opMap = { lt:'<', gt:'>', lte:'≤', gte:'≥' };
+    const actMap = { pause:'暫停', lower_bid:'降出價', raise_bid:'升出價', notify:'僅通知' };
+    wrap.innerHTML = `
+      <table>
+        <thead><tr><th>啟用</th><th>規則名稱</th><th>條件</th><th>動作</th><th>觸發次數</th><th>上次觸發</th><th></th></tr></thead>
+        <tbody>${r.items.map(rl => `
+          <tr>
+            <td>${rl.enabled?'<span style="color:var(--good)">✓</span>':'<span style="color:var(--text-muted)">—</span>'}</td>
+            <td><strong>${rl.name}</strong></td>
+            <td><span style="font-family:'DM Mono',monospace">${rl.metric.toUpperCase()} ${opMap[rl.operator]} ${rl.threshold}</span> 連續 ${rl.window_days} 天</td>
+            <td><span class="ai-type">${actMap[rl.action]}</span></td>
+            <td class="num">${rl.trigger_count||0}</td>
+            <td class="num" style="font-size:12px">${rl.last_triggered ? rl.last_triggered.slice(0,16).replace('T',' ') : '—'}</td>
+            <td><button class="btn" style="padding:4px 12px;font-size:11px" onclick="onRemoveRule('${rl.id}')">刪除</button></td>
+          </tr>`).join('')}</tbody>
+      </table>`;
+  } catch (e) {
+    showError('rules-list', '載入失敗：' + e.message);
+  }
+}
+
+window.openRuleModal = function() {
+  ['rule-name'].forEach(id => document.getElementById(id).value = '');
+  openModal('rule-modal');
+};
+
+window.submitRule = async function() {
+  const name = document.getElementById('rule-name').value.trim();
+  if (!name) { toast('規則名稱必填'); return; }
+  try {
+    await api.addRule({
+      name, metric: document.getElementById('rule-metric').value,
+      operator: document.getElementById('rule-op').value,
+      threshold: parseFloat(document.getElementById('rule-threshold').value),
+      window_days: parseInt(document.getElementById('rule-window').value),
+      action: document.getElementById('rule-action').value,
+      enabled: true, scope: 'all',
+    });
+    closeModal('rule-modal');
+    toast('✓ 規則已建立');
+    loadRules();
+  } catch (e) { toast('✗ ' + e.message); }
+};
+
+window.onRemoveRule = async function(id) {
+  if (!confirm('刪除此規則？')) return;
+  try { await api.removeRule(id); toast('✓ 已刪除'); loadRules(); }
+  catch (e) { toast('✗ ' + e.message); }
+};
+
+function _renderTriggerResult(r, isPreview) {
+  const wrap = document.getElementById('rules-trigger-result');
+  if (!wrap) return;
+  const triggered = r.triggered || r.results || [];
+  const realData = r._meta?.source === 'real';
+  if (!triggered.length) {
+    wrap.innerHTML = `<div class="info-box" style="background:#DCFCE7;color:#166534">
+      ✓ ${isPreview?'試算':'執行'}完成 · 無規則命中（${realData?'用真實 CSV 資料':'mock 模式'}）</div>`;
+    return;
+  }
+  const totalActions = triggered.reduce((sum, t) => sum + (t.affected_count || t.matched_count || 0), 0);
+  const headerColor = isPreview ? '#FEF3C7' : '#DBEAFE';
+  const headerText = isPreview
+    ? `🔍 試算結果（dry-run，未實際執行） · ${triggered.length} 條規則命中 · 影響 ${totalActions} 個商品`
+    : `▶ 執行完成 · ${triggered.length} 條規則觸發 · ${totalActions} 個商品被處理${r.dry_run?' (dry_run)':''}`;
+  wrap.innerHTML = `
+    <div class="info-box" style="background:${headerColor};color:#1E3A8A">${headerText}</div>
+    ${triggered.map(t => {
+      const matched = t.matched_products || [];
+      return `
+        <div style="margin-top:10px;padding:10px;background:#F8FAFC;border-radius:6px;border-left:4px solid var(--accent)">
+          <div style="font-weight:600;font-size:13px">
+            ${t.rule || t.rule_name} <span style="font-size:11px;color:var(--text-muted)">·
+            ${t.metric} ${({lt:'<',lte:'≤',gt:'>',gte:'≥'})[t.operator]||t.operator} ${t.threshold}
+            → ${t.action}${t.action_value!=null?' '+t.action_value:''}</span>
+          </div>
+          ${matched.length ? `
+            <table style="font-size:11px;margin-top:6px">
+              <thead><tr><th>商品</th><th class="num">${t.metric} 值</th><th class="num">花費</th><th class="num">營收</th><th>店家</th></tr></thead>
+              <tbody>${matched.map(m => `<tr>
+                <td><strong>${m.product_id||'-'}</strong> ${m.product_name||''}</td>
+                <td class="num roas-warn">${m.value}</td>
+                <td class="num">$${(m.spend_30d||0).toLocaleString()}</td>
+                <td class="num">$${(m.revenue_30d||0).toLocaleString()}</td>
+                <td style="font-size:10px">${m.shop||'-'}</td>
+              </tr>`).join('')}</tbody>
+            </table>` : '<div style="font-size:11px;color:var(--text-muted)">（無命中商品）</div>'}
+        </div>`;
+    }).join('')}
+  `;
+}
+
+window.onPreviewRules = async function() {
+  try {
+    const shop = _getCurrentShop();
+    const r = await api.previewRules(shop);
+    const onlyMatched = (r.results || []).filter(x => x.matched_count > 0);
+    _renderTriggerResult({ ...r, triggered: onlyMatched }, true);
+    toast(onlyMatched.length ? `🔍 ${onlyMatched.length} 條規則會觸發` : '🔍 試算完成 · 無規則命中');
+  } catch (e) { toast('✗ ' + e.message); }
+};
+
+window.onRunRules = async function() {
+  try {
+    const shop = _getCurrentShop();
+    const r = await api.runRules({ shop });
+    _renderTriggerResult(r, false);
+    if (!r.triggered.length) toast('掃描完成 · 無規則觸發');
+    else toast(`✓ 觸發 ${r.triggered.length} 條規則 · ${r.total_actions||0} 個商品`);
+    loadRules();
+  } catch (e) { toast('✗ ' + e.message); }
+};
+
+/* ────────── 商品健康度同步真實評分 ────────── */
+window.onSyncHealthFromShopee = async function() {
+  const shopId = parseInt(document.getElementById('health-shop-id').value);
+  if (!shopId) { toast('請輸入 shop_id'); return; }
+  const resultBox = document.getElementById('health-sync-result');
+  resultBox.innerHTML = '<div style="color:var(--text-muted);padding:8px">⏳ 從蝦皮抓真實資料中…（每商品約 1-2 秒）</div>';
+  try {
+    const r = await api.syncShopeeHealth(shopId);
+    const errors = r.errors || [];
+    if (errors.length && r.updated === 0) {
+      resultBox.innerHTML = `
+        <div class="info-box" style="background:#FEE2E2;color:#991B1B;margin:8px 0">
+          ✗ 全部失敗（${errors.length} 個商品）<br>
+          <span style="font-size:11px">主因：${errors[0]?.error || '未知'}</span><br>
+          <span style="font-size:11px">建議：1) 安裝 cloudscraper：<code>pip install cloudscraper</code> 2) 或申請 Shopee Partner API</span>
+        </div>`;
+    } else {
+      resultBox.innerHTML = `
+        <div class="info-box" style="background:#DCFCE7;color:#166534;margin:8px 0">
+          ✓ 同步 ${r.updated} 個商品的真實評分／庫存／評論
+          ${errors.length ? `（${errors.length} 個失敗）` : ''}
+        </div>`;
+    }
+    if (r.items && r.items.length) {
+      resultBox.innerHTML += `
+        <table style="font-size:11px;margin:6px 0">
+          <thead><tr><th>商品</th><th class="num">售價</th><th class="num">評分</th><th class="num">評論</th><th class="num">庫存</th><th class="num">累計銷量</th></tr></thead>
+          <tbody>${r.items.map(it=>`
+            <tr>
+              <td>${(it.name||'').substring(0,40)}</td>
+              <td class="num">$${it.price?.toLocaleString()||'-'}</td>
+              <td class="num">${it.rating_star?.toFixed(1)||'-'}</td>
+              <td class="num">${it.review_count?.toLocaleString()||0}</td>
+              <td class="num">${it.stock||'-'}</td>
+              <td class="num">${it.historical_sold?.toLocaleString()||0}</td>
+            </tr>
+          `).join('')}</tbody>
+        </table>`;
+    }
+  } catch (e) {
+    resultBox.innerHTML = `<div class="info-box" style="background:#FEE2E2;color:#991B1B">✗ ${e.message}</div>`;
+  }
+};
+
+/* ────────── Google Trends 今日熱搜 ────────── */
+async function loadTrendsDaily() {
+  const wrap = document.getElementById('trends-daily');
+  if (!wrap) return;
+  wrap.innerHTML = '<div style="color:var(--text-muted)">⏳ 載入中…</div>';
+  try {
+    const r = await api.getTrendsDaily('TW');
+    if (!r.items.length) {
+      wrap.innerHTML = '<div style="color:var(--text-muted)">沒抓到資料</div>';
+      return;
+    }
+    wrap.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px">
+        ${r.items.slice(0,12).map((t,i)=>`
+          <div style="padding:10px;background:#F8FAFC;border-radius:6px;border-left:3px solid var(--accent)">
+            <div style="font-size:11px;color:var(--text-muted)">#${i+1} · 熱度 ${t.traffic||'-'}</div>
+            <div style="font-weight:600;margin:2px 0">${t.title}</div>
+            ${t.articles && t.articles[0] ? `<div style="font-size:10px;color:#475569;margin-top:4px">📰 ${t.articles[0].title.substring(0,40)}<br><span style="color:#94A3B8">— ${t.articles[0].source}</span></div>` : ''}
+          </div>
+        `).join('')}
+      </div>`;
+  } catch (e) {
+    wrap.innerHTML = `<div class="info-box" style="background:#FEE2E2;color:#991B1B">✗ ${e.message}</div>`;
+  }
+}
+
+/* ────────── 蝦皮搜尋競品 ────────── */
+window.onShopeeSearch = async function() {
+  const kw = document.getElementById('comp-kw').value.trim();
+  const by = document.getElementById('comp-by').value;
+  if (!kw) { toast('請輸入關鍵字'); return; }
+  const wrap = document.getElementById('comp-search-results');
+  wrap.innerHTML = '<div style="color:var(--text-muted)">⏳ 搜尋中...</div>';
+  try {
+    const r = await api.searchShopee(kw, { limit: 30, by });
+    document.getElementById('comp-search-badge').textContent =
+      `共 ${r.total} 筆`;
+    if (!r.items.length) {
+      wrap.innerHTML = `<div style="color:var(--text-muted)">沒結果</div>`;
+      return;
+    }
+    wrap.innerHTML = `
+      <table style="font-size:12px">
+        <thead><tr><th>#</th><th>商品</th><th class="num">售價</th><th class="num">評分</th><th class="num">評論</th><th class="num">累計銷量</th><th></th></tr></thead>
+        <tbody>${r.items.map((p,i)=>`
+          <tr>
+            <td class="num">${i+1}</td>
+            <td><a href="${p.url}" target="_blank" style="color:var(--accent);text-decoration:none">${p.name?.substring(0,50) || '-'}</a></td>
+            <td class="num">$${p.price?.toLocaleString() || '-'}</td>
+            <td class="num">${p.rating_star?.toFixed(1) || '-'}/5</td>
+            <td class="num">${p.review_count?.toLocaleString() || 0}</td>
+            <td class="num">${p.historical_sold?.toLocaleString() || 0}</td>
+            <td><a href="${p.url}" target="_blank" style="font-size:10px;color:#2563EB">看商品</a></td>
+          </tr>
+        `).join('')}</tbody>
+      </table>`;
+  } catch (e) {
+    wrap.innerHTML = `<div class="info-box" style="background:#FEE2E2;color:#991B1B">✗ ${e.message}<br><span style="font-size:11px">蝦皮反爬蟲擋住了。建議：<br>1. 安裝 cloudscraper：<code>pip install cloudscraper</code><br>2. 或申請 Shopee Partner API（5-10 天審核）</span></div>`;
+  }
+};
+
+/* ────────── 關鍵字研究 ────────── */
+window.onExploreKw = async function() {
+  const seed = document.getElementById('kw-seed').value.trim();
+  if (!seed) return;
+  try {
+    const r = await api.exploreKeywords(seed);
+    document.getElementById('kw-tbody').innerHTML = r.items.map(k => {
+      const compBadge = {'高':'🔴 高','中':'🟡 中','低':'🟢 低'}[k.competition];
+      return `<tr>
+        <td><strong>${k.kw}</strong></td>
+        <td class="num">${k.volume.toLocaleString()}</td>
+        <td>${compBadge}</td>
+        <td class="num">$${k.cpc}</td>
+        <td class="num">${k.my_rank ? '第 '+k.my_rank+' 名' : '<span style="color:var(--text-muted)">未投放</span>'}</td>
+        <td>${sparkline(k.trend)}</td>
+        <td><button class="btn" style="padding:4px 12px;font-size:11px">加入廣告</button></td>
+      </tr>`;
+    }).join('');
+  } catch (e) { showError('kw-tbody', '載入失敗：' + e.message); }
+};
+
+async function loadKwGroups() {
+  try {
+    const r = await api.getKeywordGroups();
+    document.getElementById('kw-groups').innerHTML = r.items.map(g => `
+      <div style="border:1px solid var(--border);border-left:4px solid ${g.color};border-radius:8px;padding:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div style="font-weight:600">${g.name}</div>
+          <div style="font-size:11px;color:var(--text-muted)">${g.count} 個詞</div>
+        </div>
+        <div style="font-size:11px;color:var(--text-secondary)">${g.keywords.join(' · ')}</div>
+      </div>`).join('');
+  } catch (e) { console.error(e); }
+}
+
+async function loadSeasonal() {
+  try {
+    const r = await api.getSeasonalCalendar();
+    document.getElementById('kw-seasonal').innerHTML = `
+      <table>
+        <thead><tr><th>月份</th><th>檔期</th><th>關鍵字</th><th>搜尋暴漲幅度</th></tr></thead>
+        <tbody>${r.items.map(s => `
+          <tr>
+            <td><strong>${s.month} 月</strong></td>
+            <td>${s.season}</td>
+            <td>${s.keywords.map(k => `<span class="event-tag tag-tip" style="margin:1px">${k}</span>`).join('')}</td>
+            <td class="num roas-good">↑ ${s.surge_pct}%</td>
+          </tr>`).join('')}</tbody>
+      </table>`;
+  } catch (e) { console.error(e); }
+}
+
+/* ────────── 受眾 ────────── */
+async function loadAudiences() {
+  try {
+    const r = await api.listAudiences();
+    document.getElementById('audience-list').innerHTML = `
+      <table>
+        <thead><tr><th>受眾名稱</th><th>篩選條件</th><th>觸及人數</th><th>預估轉換率</th><th>建立時間</th><th></th></tr></thead>
+        <tbody>${r.items.map(a => `
+          <tr>
+            <td><strong>${a.name}</strong></td>
+            <td style="font-size:12px;color:var(--text-secondary);max-width:280px">${a.condition}</td>
+            <td class="num">${a.reach.toLocaleString()}</td>
+            <td class="num roas-good">${a.conv_rate}%</td>
+            <td class="num" style="font-size:12px">${a.created_at.slice(0,10)}</td>
+            <td><button class="btn" style="padding:4px 10px;font-size:11px" onclick="onRemoveAudience('${a.id}')">移除</button></td>
+          </tr>`).join('')}</tbody>
+      </table>`;
+  } catch (e) { showError('audience-list', '載入失敗：' + e.message); }
+}
+
+window.openAudienceModal = function() {
+  document.getElementById('aud-name').value = '';
+  document.getElementById('aud-cond').value = '';
+  openModal('audience-modal');
+};
+
+window.submitAudience = async function() {
+  const name = document.getElementById('aud-name').value.trim();
+  const cond = document.getElementById('aud-cond').value.trim();
+  if (!name || !cond) { toast('名稱與條件必填'); return; }
+  try {
+    await api.addAudience({ name, condition: cond });
+    closeModal('audience-modal');
+    toast('✓ 已建立受眾包');
+    loadAudiences();
+  } catch (e) { toast('✗ ' + e.message); }
+};
+
+window.onRemoveAudience = async function(id) {
+  if (!confirm('移除受眾？')) return;
+  try { await api.removeAudience(id); toast('✓ 已移除'); loadAudiences(); }
+  catch (e) { toast('✗ ' + e.message); }
+};
+
+window.onGenerateCopy = async function() {
+  const product = document.getElementById('copy-product').value.trim() || '商品';
+  const style = document.getElementById('copy-style').value;
+  document.getElementById('copy-result').innerHTML = '<div class="info-box">⏳ AI 生成中...</div>';
+  try {
+    const r = await api.generateCopy({ product, style });
+    document.getElementById('copy-result').innerHTML = `
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">由 ${r.ai_model} 生成 · 風格：${r.style}</div>
+      ${r.copies.map((c, i) => `
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">候選 ${i+1}</div>
+          <div style="font-weight:500">${c}</div>
+        </div>`).join('')}`;
+  } catch (e) {
+    document.getElementById('copy-result').innerHTML = `<div class="info-box" style="background:#FEE2E2;color:#991B1B">✗ ${e.message}</div>`;
+  }
+};
+
+/* ────────── 客戶 CRM + 月報 ────────── */
+async function loadCustomers() {
+  try {
+    const r = await api.listCustomers();
+    document.getElementById('customer-list').innerHTML = `
+      <table>
+        <thead><tr><th>客戶</th><th>聯絡</th><th>合約期</th><th>月費</th><th>目標 ROAS</th><th>結算日</th><th>狀態</th><th></th></tr></thead>
+        <tbody>${r.items.map(c => {
+          const statusBadge = c.status==='active' ? '<span class="roas-good">✓ 進行中</span>' :
+                              c.status==='warning' ? '<span class="roas-warn">⚠ 警示</span>' :
+                                                     '<span class="roas-bad">✗ 暫停</span>';
+          return `<tr>
+            <td><div style="font-weight:600">${c.name}</div><div style="font-size:11px;color:var(--text-muted)">${c.email}</div></td>
+            <td style="font-size:12px"><div>📞 ${c.contact||'—'}</div><div style="color:var(--text-muted)">L: ${c.line_id||'—'}</div></td>
+            <td style="font-size:12px">${c.contract_start} ~ ${c.contract_end}</td>
+            <td class="num">$${(c.monthly_fee||0).toLocaleString()}</td>
+            <td class="num">${c.target_roas}</td>
+            <td class="num">每月 ${c.settle_day} 日</td>
+            <td>${statusBadge}</td>
+            <td>
+              <button class="btn btn-primary" style="padding:4px 10px;font-size:11px" onclick="openMonthlyReport('${c.id}')">產月報</button>
+              <button class="btn" style="padding:4px 10px;font-size:11px" onclick="onRemoveCustomer('${c.id}')">移除</button>
+            </td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>`;
+  } catch (e) { showError('customer-list', '載入失敗：' + e.message); }
+}
+
+window.openCustomerModal = function() {
+  ['cust-name','cust-contact','cust-email','cust-line'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('cust-fee').value = 30000;
+  document.getElementById('cust-roas').value = 3.5;
+  openModal('customer-modal');
+};
+
+window.submitCustomer = async function() {
+  const name = document.getElementById('cust-name').value.trim();
+  if (!name) { toast('客戶名稱必填'); return; }
+  try {
+    await api.addCustomer({
+      name,
+      contact: document.getElementById('cust-contact').value,
+      email: document.getElementById('cust-email').value,
+      line_id: document.getElementById('cust-line').value,
+      monthly_fee: parseFloat(document.getElementById('cust-fee').value) || 0,
+      target_roas: parseFloat(document.getElementById('cust-roas').value) || 3.0,
+      contract_start: document.getElementById('cust-start').value,
+      contract_end: document.getElementById('cust-end').value,
+    });
+    closeModal('customer-modal');
+    toast('✓ 已新增客戶');
+    loadCustomers();
+  } catch (e) { toast('✗ ' + e.message); }
+};
+
+window.onRemoveCustomer = async function(id) {
+  if (!confirm('移除此客戶？')) return;
+  try { await api.removeCustomer(id); toast('✓ 已移除'); loadCustomers(); }
+  catch (e) { toast('✗ ' + e.message); }
+};
+
+// 記住目前打開的月報資訊（給「下載 PDF」自動命名用）
+let _currentReportInfo = null;
+
+window.printReportAsPdf = function() {
+  const info = _currentReportInfo;
+  if (!info) { window.print(); return; }
+  // 暫時改 title 讓瀏覽器另存 PDF 時的預設檔名是「客戶名_月報_YYYY-MM」
+  const oldTitle = document.title;
+  const cleanName = info.customerName.replace(/[\\/:*?"<>|]/g, '_');
+  document.title = `${cleanName}_月報_${info.month}`;
+  document.body.classList.add('print-report-only');
+  // 觸發列印對話框（user 在對話框選「另存為 PDF」）
+  setTimeout(() => {
+    window.print();
+    setTimeout(() => {
+      document.body.classList.remove('print-report-only');
+      document.title = oldTitle;
+    }, 500);
+  }, 100);
+};
+
+window.openMonthlyReport = async function(cid) {
+  try {
+    const r = await api.getMonthlyReport(cid);
+    const m = r.metrics;
+    const meta = r._meta || {};
+    // 暫存給「下載 PDF」用
+    _currentReportInfo = { customerName: r.customer.name, month: r.month, customerId: cid };
+    const achievedBadge = m.kpi_achieved ? '<span class="roas-good">✓ 達標</span>' : '<span class="roas-bad">✗ 未達標</span>';
+
+    // source badge
+    const isReal = meta.source === 'real';
+    const reasonNote = !isReal && meta.reason === 'no_data_for_customer_shops'
+      ? `（此客戶 shop_ids ${(meta.shop_ids||[]).join('/')} 還沒有 CSV 資料）`
+      : !isReal && meta.reason === 'no_csv_data'
+        ? '（尚未上傳任何 CSV）' : '';
+    const srcBadge = `<div style="margin-bottom:10px">
+      <span style="display:inline-block;padding:3px 8px;background:${isReal?'#16A34A':'#94A3B8'};color:#fff;border-radius:10px;font-size:11px;font-weight:600">
+        ${isReal?'●':'○'} ${isReal?'真實 CSV 資料':'Demo 範例資料'}${reasonNote}
+      </span>
+    </div>`;
+
+    // 真實獲利區塊（若有）
+    const profitBlock = r.profit ? `
+      <div style="margin-bottom:16px;padding:12px;background:#FEF3C7;border-radius:8px">
+        <div style="font-weight:600;margin-bottom:8px">💰 真實獲利分解（含商品成本/運費/平台抽成/刷卡費）</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;font-size:12px">
+          <div>營收：<strong>${fmt$(r.profit.revenue)}</strong></div>
+          <div>廣告：<strong>−${fmt$(r.profit.ad_spend)}</strong></div>
+          <div>商品成本：<strong>−${fmt$(r.profit.cogs)}</strong></div>
+          <div>運費：<strong>−${fmt$(r.profit.shipping_total)}</strong></div>
+          <div>平台抽成：<strong>−${fmt$(r.profit.platform_fee)}</strong></div>
+          <div>刷卡費：<strong>−${fmt$(r.profit.payment_fee)}</strong></div>
+          <div style="grid-column:1/-1;padding-top:6px;border-top:1px solid #FCD34D;margin-top:4px">
+            <strong style="font-size:14px;color:${r.profit.net_profit>=0?'var(--good)':'var(--bad)'}">
+              淨利：${fmt$(r.profit.net_profit)} (${r.profit.net_profit>=0?'✓ 賺':'⚠ 虧'})
+            </strong>
+          </div>
+        </div>
+      </div>` : '';
+
+    // Top 3 商品（若有）
+    const topProductsBlock = (r.top_products && r.top_products.length) ? `
+      <div style="margin-bottom:16px">
+        <div style="font-weight:600;margin-bottom:6px">🏆 本月 Top ${r.top_products.length} 商品</div>
+        <table style="font-size:12px">
+          <thead><tr><th>商品</th><th class="num">營收</th><th class="num">花費</th><th class="num">ROAS</th><th class="num">訂單</th></tr></thead>
+          <tbody>${r.top_products.map(p=>`<tr>
+            <td>${p.product_name}</td>
+            <td class="num">${fmt$(p.revenue)}</td>
+            <td class="num">${fmt$(p.spend)}</td>
+            <td class="num ${p.roas>=m.target_roas?'roas-good':'roas-warn'}">${p.roas}</td>
+            <td class="num">${p.orders}</td>
+          </tr>`).join('')}</tbody>
+        </table>
+      </div>` : '';
+
+    // 每日趨勢迷你 sparkline（若有）
+    const trendBlock = (r.daily_trend && r.daily_trend.length) ? `
+      <div style="margin-bottom:16px">
+        <div style="font-weight:600;margin-bottom:6px">📈 每日 spend / revenue 趨勢（${r.daily_trend.length} 天）</div>
+        <div style="font-size:11px;color:var(--text-muted)">
+          ${r.daily_trend.map(p=>`<span style="display:inline-block;margin-right:10px">${p.date.slice(5)} <strong>${fmt$(p.revenue)}</strong></span>`).join('')}
+        </div>
+      </div>` : '';
+
+    document.getElementById('report-body').innerHTML = `
+      ${srcBadge}
+      <h2 style="margin:0 0 8px;font-size:20px">${r.customer.name} · ${r.month} 月報</h2>
+      <div style="color:var(--text-muted);font-size:13px;margin-bottom:16px">
+        合約期 ${r.customer.contract_start} ~ ${r.customer.contract_end} · 月費 $${(r.customer.monthly_fee||0).toLocaleString()}
+        · 服務店家 ${(r.customer.shop_ids||[]).join(' / ') || '—'}
+      </div>
+      <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
+        <div class="kpi"><div class="kpi-label">營收</div><div class="kpi-value">${fmt$(m.revenue)}</div></div>
+        <div class="kpi"><div class="kpi-label">廣告花費</div><div class="kpi-value">${fmt$(m.spend)}</div></div>
+        <div class="kpi"><div class="kpi-label">ROAS</div><div class="kpi-value">${m.roas}</div>
+          <div class="kpi-meta">目標 ${m.target_roas} · ${achievedBadge}</div></div>
+      </div>
+      ${profitBlock}
+      ${topProductsBlock}
+      ${trendBlock}
+      <div style="margin-bottom:16px">
+        <div style="font-weight:600;margin-bottom:6px">📌 本月亮點</div>
+        <ul style="margin:0;padding-left:20px">${r.highlights.map(h=>`<li style="margin:4px 0">${h}</li>`).join('')}</ul>
+      </div>
+      <div>
+        <div style="font-weight:600;margin-bottom:6px">🎯 下月計畫</div>
+        <ul style="margin:0;padding-left:20px">${r.next_month_plan.map(p=>`<li style="margin:4px 0">${p}</li>`).join('')}</ul>
+      </div>`;
+    document.getElementById('report-send-btn').onclick = async () => {
+      try {
+        await api.sendReport({ customer_id: cid, method: 'email' });
+        toast('✓ 月報已寄出');
+        closeModal('report-modal');
+        loadReportLog();
+      } catch (e) { toast('✗ ' + e.message); }
+    };
+    openModal('report-modal');
+  } catch (e) { toast('✗ ' + e.message); }
+};
+
+async function loadReportLog() {
+  try {
+    const r = await api.getReportLog();
+    const wrap = document.getElementById('report-log');
+    if (!r.items.length) {
+      wrap.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:24px">尚無寄送紀錄</div>`;
+      return;
+    }
+    wrap.innerHTML = `
+      <table>
+        <thead><tr><th>客戶 ID</th><th>方式</th><th>狀態</th><th>寄送時間</th></tr></thead>
+        <tbody>${r.items.map(l => `
+          <tr>
+            <td>${l.customer_id}</td>
+            <td>${l.method==='line'?'📱 LINE':'✉️ Email'}</td>
+            <td>${l.status}</td>
+            <td class="num" style="font-size:12px">${l.sent_at.slice(0,16).replace('T',' ')}</td>
+          </tr>`).join('')}</tbody>
+      </table>`;
+  } catch (e) { console.error(e); }
+}
+
+/* ────────── 團隊 + LINE Notify ────────── */
+async function loadTeam() {
+  try {
+    const r = await api.listTeam();
+    const roleMap = { operator:'操作員', admin:'主管', viewer:'檢視者' };
+    document.getElementById('team-list').innerHTML = `
+      <table>
+        <thead><tr><th>姓名</th><th>Email</th><th>角色</th><th>負責客戶數</th><th>狀態</th><th></th></tr></thead>
+        <tbody>${r.items.map(t => `
+          <tr>
+            <td><strong>${t.name}</strong></td>
+            <td style="font-size:12px">${t.email}</td>
+            <td><span class="ai-type">${roleMap[t.role]||t.role}</span></td>
+            <td class="num">${(t.assigned_customers||[]).length}</td>
+            <td>${t.active?'<span class="roas-good">✓ 啟用</span>':'<span style="color:var(--text-muted)">已停用</span>'}</td>
+            <td><button class="btn" style="padding:4px 10px;font-size:11px" onclick="onRemoveTeamMember('${t.id}')">移除</button></td>
+          </tr>`).join('')}</tbody>
+      </table>`;
+  } catch (e) { showError('team-list', '載入失敗：' + e.message); }
+}
+
+window.openTeamModal = function() {
+  ['team-name','team-email'].forEach(id => document.getElementById(id).value = '');
+  openModal('team-modal');
+};
+
+window.submitTeamMember = async function() {
+  const name = document.getElementById('team-name').value.trim();
+  const email = document.getElementById('team-email').value.trim();
+  if (!name || !email) { toast('姓名與 Email 必填'); return; }
+  try {
+    await api.addTeamMember({ name, email, role: document.getElementById('team-role').value });
+    closeModal('team-modal');
+    toast('✓ 已新增成員');
+    loadTeam();
+  } catch (e) { toast('✗ ' + e.message); }
+};
+
+window.onRemoveTeamMember = async function(id) {
+  if (!confirm('移除此成員？')) return;
+  try { await api.removeTeamMember(id); toast('✓ 已移除'); loadTeam(); }
+  catch (e) { toast('✗ ' + e.message); }
+};
+
+async function loadNotifyConfig() {
+  try {
+    const cfg = await api.getNotifyConfig();
+    if (cfg.line_token) document.getElementById('line-token').value = cfg.line_token;
+    const eventLabels = {
+      roas_drop: 'ROAS 暴跌（單日 -30%）',
+      budget_burn: '預算燒爆預警（中午前燒 70%）',
+      competitor_drop: '競品大幅降價',
+      ai_suggestion: 'AI 產生新建議',
+      rule_triggered: '自動規則觸發',
+    };
+    document.getElementById('notify-events').innerHTML = Object.entries(eventLabels).map(([k, label]) => `
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;border:1px solid var(--border);border-radius:6px">
+        <input type="checkbox" data-event="${k}" ${cfg.events[k]?'checked':''}>
+        <span style="font-size:13px">${label}</span>
+      </label>`).join('');
+  } catch (e) { console.error(e); }
+}
+
+window.saveNotifyConfig = async function() {
+  const token = document.getElementById('line-token').value.trim();
+  const events = {};
+  document.querySelectorAll('#notify-events input[data-event]').forEach(cb => {
+    events[cb.dataset.event] = cb.checked;
+  });
+  try {
+    await api.updateNotifyConfig({ line_token: token, events });
+    toast('✓ 設定已儲存');
+  } catch (e) { toast('✗ ' + e.message); }
+};
+
+window.onTestNotify = async function() {
+  try {
+    const r = await api.testNotify();
+    if (r.sent) toast('✓ 測試訊息已送出 (' + r.preview + ')');
+    else toast('⚠ ' + r.reason);
+  } catch (e) { toast('✗ ' + e.message); }
+};
+
+/* ────────── 跨平台 ────────── */
+async function loadMultiPlatform() {
+  try {
+    const r = await api.getMultiPlatform();
+    document.getElementById('multi-tbody').innerHTML = r.items.map(item => {
+      const fmtPlatform = (p) => {
+        if (!p) return '<span style="color:var(--text-muted)">未投放</span>';
+        return `<div style="font-size:11px;color:var(--text-muted)">花費 ${fmt$(p.spend)} · 營收 ${fmt$(p.revenue)}</div>
+                <div class="num ${roasClass(p.roas)}" style="font-weight:600">${roasIcon(p.roas)} ROAS ${p.roas}</div>`;
+      };
+      const totalSpend = (item.shopee?.spend||0) + (item.momo?.spend||0) + (item.pchome?.spend||0);
+      const totalRev = (item.shopee?.revenue||0) + (item.momo?.revenue||0) + (item.pchome?.revenue||0);
+      const totalRoas = totalSpend ? (totalRev/totalSpend).toFixed(2) : 0;
+      return `<tr>
+        <td><strong>${item.shop}</strong></td>
+        <td>${fmtPlatform(item.shopee)}</td>
+        <td>${fmtPlatform(item.momo)}</td>
+        <td>${fmtPlatform(item.pchome)}</td>
+        <td><div style="font-size:11px;color:var(--text-muted)">花費 ${fmt$(totalSpend)} · 營收 ${fmt$(totalRev)}</div>
+            <div class="num ${roasClass(parseFloat(totalRoas))}" style="font-weight:600;font-size:15px">合計 ${totalRoas}x</div></td>
+      </tr>`;
+    }).join('');
+  } catch (e) { showError('multi-tbody', '載入失敗：' + e.message); }
+}
+
+/* ────────── 啟動所有 API 呼叫（並行） ────────── */
+Promise.all([
+  // 客戶切換器要先載完，才能讓 KPI / Trend / Profit / Health / Budget 讀對的 shop filter
+  loadCustomerSwitcher().then(() => Promise.all([
+    loadKpi(), loadTrend(), loadProfitCards(),
+    loadHealth(), loadBudgetPacing(),
+  ])),
+  loadAiBadge(),
+  loadAccounts(), loadHeatmap(),
+  loadEvents(), loadSuggestions(), loadRising(), loadOptimized(), loadActions(),
+  loadSnapshots(), loadSnapChart(),
+  loadCompetitorKeywords(), loadPriceChart('3C'),
+  loadConnections(), loadUploads(), loadCompetitorList(), loadAdjustments(),
+  loadWatcher(), loadEmailStatus(), loadShopeeStatus(),
+  loadRules(),
+  loadKwGroups(), loadSeasonal(), loadTrendsDaily(),
+  loadAudiences(), loadCustomers(), loadReportLog(),
+  loadTeam(), loadNotifyConfig(),
+  loadMultiPlatform(),
+]);
+// 預設先探索一次「充電器」
+setTimeout(() => onExploreKw(), 500);
+// Watcher 狀態每 10 秒自動刷新
+setInterval(() => {
+  // 只在 settings 頁可見時刷新，避免無謂 polling
+  const page = document.getElementById('page-settings');
+  if (page && page.classList.contains('active')) loadWatcher();
+}, 10000);
+</script>
+</body>
+</html>
