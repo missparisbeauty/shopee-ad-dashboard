@@ -45,6 +45,18 @@ async def basic_auth_middleware(request: Request, call_next):
     if request.url.path in ("/healthz", "/api/v1/healthz"):
         return await call_next(request)
 
+    # 排程 endpoint（Cloud Scheduler 用）：不走 Basic Auth，改用 X-Cron-Token 驗證
+    if request.url.path.startswith("/api/v1/cron/"):
+        import os
+        cron_token = os.environ.get("CRON_TOKEN")
+        if cron_token and request.headers.get("X-Cron-Token") == cron_token:
+            return await call_next(request)
+        return Response(
+            content='{"error":{"code":"BAD_CRON_TOKEN","message":"invalid cron token"}}',
+            status_code=403,
+            headers={"Content-Type": "application/json; charset=utf-8"},
+        )
+
     expected_user, expected_pass = creds
     auth_header = request.headers.get("Authorization", "")
 
