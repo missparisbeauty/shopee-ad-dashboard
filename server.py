@@ -1992,15 +1992,41 @@ def get_monthly_report(
                 f"營收冠軍：{top_products[0]['product_name']}（NT${top_products[0]['revenue']:,.0f} / ROAS {top_products[0]['roas']}）"
             )
 
+        # 下月計畫：優先用 AI 顧問動態生成（有 API key 用 Claude，沒有用規則式分析，
+        # 兩者都比固定模板貼近真實數據）
+        ai_source = "rule_template"
         next_month_plan = []
-        if roas < target_roas:
-            next_month_plan.append(f"ROAS 未達標，下月優先優化最差 3 商品的關鍵字與出價")
-        if profit_total["net_profit"] < 0:
-            next_month_plan.append("⚠️ 整體淨利為負，需重新檢視商品成本結構與運費策略")
-        if top_products and len(top_products) >= 1 and top_products[0]["roas"] >= target_roas * 1.2:
-            next_month_plan.append(f"主推商品「{top_products[0]['product_name']}」表現亮眼，下月加碼預算")
+        try:
+            ai = ai_advisor.generate_insights({
+                "kpi": {"spend": kpi_total["spend"], "revenue": kpi_total["revenue"],
+                        "roas": roas, "target_roas": target_roas,
+                        "orders": kpi_total["orders"]},
+                "profit": profit_total,
+                "top_products": top_products,
+                "triggered_rules": [],
+            }, customer=cust)
+            ai_plan = (ai.get("immediate_actions") or []) + (ai.get("this_week_plan") or [])
+            ai_plan = [x for x in ai_plan if x and "無緊急" not in x]
+            if ai_plan:
+                next_month_plan = ai_plan[:5]
+            # AI 診斷補進亮點（數據事實 + AI 洞察）
+            ai_diag = [d for d in (ai.get("diagnosis") or []) if d and "符合或超越" not in d]
+            if ai_diag:
+                highlights = highlights[:4] + ai_diag[:2]
+            ai_source = (ai.get("_meta") or {}).get("source", "rule_based")
+        except Exception:
+            pass
+
+        # AI 完全沒產出時，退回原本的規則式
         if not next_month_plan:
-            next_month_plan = ["維持當前策略", "微調出價優化低 ROAS 商品", "測試 3 組新關鍵字擴量"]
+            if roas < target_roas:
+                next_month_plan.append("ROAS 未達標，下月優先優化最差 3 商品的關鍵字與出價")
+            if profit_total["net_profit"] < 0:
+                next_month_plan.append("⚠️ 整體淨利為負，需重新檢視商品成本結構與運費策略")
+            if top_products and top_products[0]["roas"] >= target_roas * 1.2:
+                next_month_plan.append(f"主推商品「{top_products[0]['product_name']}」表現亮眼，下月加碼預算")
+            if not next_month_plan:
+                next_month_plan = ["維持當前策略", "微調出價優化低 ROAS 商品", "測試 3 組新關鍵字擴量"]
 
         return ok({
             "customer": cust, "month": month,
