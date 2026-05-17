@@ -64,3 +64,4 @@ desktop.ini
 *.tfstate.backup
 .env
 .env.local
+shopee-auto-upload.LOCAL.user.js
