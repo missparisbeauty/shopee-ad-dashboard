@@ -763,7 +763,7 @@
     <div class="page-header">
       <div>
         <div class="page-title">高效時段視覺化 <span style="font-size:11px;background:#94A3B8;color:#fff;padding:2px 8px;border-radius:8px;margin-left:6px">○ Mock 數據</span></div>
-        <div class="page-sub">7天 × 24小時熱力圖 · 蝦皮匯出 CSV 沒「小時」維度，目前是示範資料；之後接 Shopee Open API 訂單明細才能用真實</div>
+        <div class="page-sub">7天 × 24小時熱力圖 <span style="font-size:11px;background:#94A3B8;color:#fff;padding:2px 8px;border-radius:8px;margin-left:6px">○ 示範資料</span><br><span style="color:#D97706;font-size:11px">蝦皮匯出的 CSV 沒有「幾點」這個資訊，所以這頁是示範用的；之後串接蝦皮官方訂單資料才能看真實時段</span></div>
       </div>
       <div class="seg">
         <button class="active">全部</button>
@@ -903,8 +903,8 @@
           <div>
             <div class="card-title">🔎 蝦皮搜尋競品 <span style="font-size:11px;background:#94A3B8;color:#fff;padding:2px 8px;border-radius:8px;margin-left:6px">○ 暫不可用</span></div>
             <div style="font-size:12px;color:#7C2D12;margin-top:4px">
-              已測試：純 HTTP / cloudscraper 都被蝦皮擋（HTTP 403）。
-              <strong>解法：</strong>申請 <a href="https://open.shopee.com" target="_blank">Shopee Open API Partner</a>（5-10 工作天審核），拿到後設環境變數 <code>SHOPEE_PARTNER_ID</code> 即可。
+              蝦皮加了防機器人保護，目前抓不到競品公開資料。
+              <strong>正式做法：</strong>申請 <a href="https://open.shopee.com" target="_blank">蝦皮開放平台合作夥伴</a>（審核約 5-10 個工作天），核准後請工程師設定金鑰即可使用。
             </div>
           </div>
         </div>
@@ -958,9 +958,9 @@
     <div class="card">
       <div class="card-head">
         <div style="font-size:12px;color:#7C2D12">
-          ⚠️ 從蝦皮抓真實評分／庫存目前不可用（v4 公開 API 被擋）。
-          目前評分／庫存／價競力為 <strong>估算值</strong>。
-          <a href="https://open.shopee.com" target="_blank" style="color:#2563EB">申請 Shopee Open API</a> 後可取得真實。
+          ⚠️ 目前無法從蝦皮抓真實的評分／庫存（蝦皮有防機器人保護）。
+          所以這頁的「評分／庫存／價格競爭力」是<strong>系統依銷售推估的，僅供參考</strong>。
+          想要真實數字：<a href="https://open.shopee.com" target="_blank" style="color:#2563EB">申請蝦皮開放平台合作夥伴</a>後請工程師設定即可。
         </div>
       </div>
       <div id="health-sync-result" style="padding:0 20px"></div>
@@ -1237,8 +1237,8 @@
       <div class="card">
         <div class="card-head">
           <div>
-            <div class="card-title">🔗 蝦皮店家綁定（OAuth 授權）</div>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">點擊產生授權連結 → 寄給賣家 → 賣家登入蝦皮同意 → 自動回填到此</div>
+            <div class="card-title">🔗 蝦皮店家授權連結（選用，補商品資料用）</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">產生授權連結 → 寄給賣家 → 賣家登入蝦皮按同意 → 自動連結回來。<strong>注意：上傳廣告 CSV 不需要這個</strong>，這只是想額外抓商品評分/庫存才用</div>
           </div>
           <button class="btn btn-primary" onclick="onConnectShop()" style="flex:0;padding:6px 14px">+ 綁定新店家</button>
         </div>
@@ -1257,17 +1257,14 @@
         </div>
         <div style="padding:20px">
           <div class="form-row">
-            <label>店家</label>
-            <select id="upload-shop">
-              <option value="自家3C旗艦店">自家3C旗艦店</option>
-              <option value="自家美妝專櫃">自家美妝專櫃</option>
-              <option value="自家居家生活">自家居家生活</option>
-              <option value="A 食品行">A 食品行</option>
-              <option value="B 服飾批發">B 服飾批發</option>
-              <option value="C 寵物用品">C 寵物用品</option>
-              <option value="D 母嬰用品">D 母嬰用品</option>
-              <option value="E 戶外運動">E 戶外運動</option>
+            <label>店家 / 客戶</label>
+            <select id="upload-shop" onchange="onUploadShopChange(this)">
+              <option value="">載入中…</option>
             </select>
+            <button class="btn" type="button" onclick="loadUploadShopOptions()" style="flex:0;padding:4px 10px;font-size:12px;margin-left:6px" title="重新整理客戶清單">🔄</button>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin:-8px 0 8px 90px">
+            選單自動帶出「客戶 CRM」頁建立的客戶店家。沒有要的店家？選「➕ 新增店家」即可現場新增。
           </div>
           <div class="dropzone" id="dropzone">
             <div style="font-size:32px">📄</div>
@@ -1285,8 +1282,8 @@
       <div class="card">
         <div class="card-head">
           <div>
-            <div class="card-title">🛒 Shopee Open API 串接</div>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">補商品 rating / stock / reviews（CSV 沒有的） · 未設 partner 時 mock 模式</div>
+            <div class="card-title">🛒 蝦皮官方資料介接（補商品評分/庫存）</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">把 CSV 沒有的「商品評分、庫存、評論數」從蝦皮官方補進來 · 尚未申請權限時顯示示範假資料</div>
           </div>
         </div>
         <div id="shopee-status-box" style="padding:14px 20px"><div style="color:var(--text-muted)">載入中…</div></div>
@@ -1298,8 +1295,8 @@
       <div class="card">
         <div class="card-head">
           <div>
-            <div class="card-title">✉️ Email 寄送設定（SendGrid）</div>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">月報透過 SendGrid 寄出 · 未設定時自動 fallback mock 模式（不真寄）</div>
+            <div class="card-title">✉️ 月報自動寄信設定</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">設定後，月報可以一鍵自動寄到客戶 email · 未設定時是示範模式（不會真的寄）</div>
           </div>
         </div>
         <div id="email-status-box" style="padding:14px 20px"><div style="color:var(--text-muted)">載入中…</div></div>
@@ -1338,7 +1335,7 @@
         <div class="card-head">
           <div>
             <div class="card-title">🎯 競品監控對象</div>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">指定要追蹤的競品店家 → 系統定期透過 Open API 抓取對方公開商品資料</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">記錄你想追蹤的競爭對手店家（申請蝦皮官方資料權限後，可定期自動抓對方公開商品資訊）</div>
           </div>
           <button class="btn btn-primary" onclick="openCompetitorModal()" style="flex:0;padding:6px 14px">+ 新增競品</button>
         </div>
@@ -2288,7 +2285,7 @@ window.onConnectShop = async function() {
   try {
     const r = await api.getShopeeAuthUrl();
     if (r.mock) {
-      if (!confirm('🧪 目前是 Mock 模式（未設定真實 partner_id）\n會建立假授權記錄做 Demo\n\n設定真實環境變數即可走真蝦皮 OAuth：\n  SHOPEE_PARTNER_ID\n  SHOPEE_PARTNER_KEY\n\n繼續 Mock 流程？')) return;
+      if (!confirm('🧪 目前是示範模式（還沒跟蝦皮申請官方資料權限）\n\n按確定會建立一筆「假的」授權記錄，只是讓你看流程長什麼樣，不會真的連到蝦皮。\n\n要正式使用需請工程師設定蝦皮合作夥伴金鑰。\n\n繼續看示範？')) return;
     }
     window.location.href = r.url;
   } catch (e) { toast('✗ ' + e.message); }
@@ -2298,7 +2295,7 @@ async function loadConnections() {
   try {
     const r = await api.listConnections();
     const wrap = document.getElementById('conn-list');
-    const mockBanner = r.mock_mode ? '<div class="info-box" style="background:#FEF3C7;color:#92400E">🧪 目前是 Mock 模式 — 設定環境變數 SHOPEE_PARTNER_ID 與 SHOPEE_PARTNER_KEY 後即走真實 OAuth</div>' : '';
+    const mockBanner = r.mock_mode ? '<div class="info-box" style="background:#FEF3C7;color:#92400E">🧪 目前是示範模式（顯示假資料）— 需請工程師設定蝦皮合作夥伴金鑰後才會連到真實蝦皮。下方店家若標「示範」都是假的，可直接解除</div>' : '';
     if (!r.items.length) {
       wrap.innerHTML = mockBanner + `<div style="text-align:center;color:var(--text-muted);padding:24px">尚未綁定任何店家</div>`;
       return;
@@ -2343,8 +2340,82 @@ if (dz) {
   fi.addEventListener('change', e => { if (e.target.files.length) handleUpload(e.target.files[0]); });
 }
 
+// HTML escape（防店家/客戶名含特殊字元破壞 HTML 或 XSS）
+function escHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// 動態填「店家 / 客戶」下拉 — 從 customers.json 的 shop_ids 來
+async function loadUploadShopOptions() {
+  const sel = document.getElementById('upload-shop');
+  if (!sel) return;
+  const prev = sel.value;  // 記住目前選的，重整後盡量保留
+  try {
+    const r = await api.listCustomers();
+    const customers = r.items || [];
+    // 收集所有 shop（每個客戶可能多個 shop_ids）
+    const shopMap = [];  // [{shop, label}]
+    for (const c of customers) {
+      for (const sid of (c.shop_ids || [])) {
+        shopMap.push({ shop: sid, label: `${sid}（${c.name}）` });
+      }
+    }
+    let html = '';
+    if (shopMap.length === 0) {
+      html = '<option value="">（尚無客戶 — 請選下方「➕ 新增店家」）</option>';
+    } else {
+      html = shopMap.map(x => `<option value="${escHtml(x.shop)}">${escHtml(x.label)}</option>`).join('');
+    }
+    html += '<option value="__ADD__">➕ 新增店家 / 客戶…</option>';
+    sel.innerHTML = html;
+    // 還原之前選的
+    if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
+  } catch (e) {
+    sel.innerHTML = '<option value="">載入客戶失敗：' + e.message + '</option>';
+  }
+}
+
+window.onUploadShopChange = async function(selEl) {
+  if (selEl.value !== '__ADD__') return;
+  // 選了「➕ 新增店家」→ 跳 prompt
+  const shopName = prompt(
+    '輸入新店家 / 蝦皮賣場名稱\n（例如：科爸好皮、自家美妝專櫃）\n\n這會建立一個新客戶，之後上傳 CSV 就能選它：');
+  if (!shopName || !shopName.trim()) {
+    loadUploadShopOptions();  // 取消 → 還原
+    return;
+  }
+  const custName = prompt('這個店家屬於哪個客戶？\n（顯示用，例如：科爸好皮 BODY&FACE）\n直接 Enter 就用店家名當客戶名：') || shopName.trim();
+  try {
+    await api.addCustomer({
+      name: custName.trim(),
+      shop_ids: [shopName.trim()],
+      target_roas: 3.5,
+      target_acos: 28,
+      monthly_fee: 0,
+    });
+    toast('✓ 已新增客戶：' + custName.trim());
+    await loadUploadShopOptions();
+    // 自動選中剛新增的
+    const sel = document.getElementById('upload-shop');
+    if ([...sel.options].some(o => o.value === shopName.trim())) {
+      sel.value = shopName.trim();
+    }
+    if (typeof loadCustomers === 'function') loadCustomers();  // 同步刷新 CRM 頁
+  } catch (e) {
+    toast('✗ 新增失敗：' + e.message);
+    loadUploadShopOptions();
+  }
+};
+
 async function handleUpload(file, force = false) {
   const shop = document.getElementById('upload-shop').value;
+  if (!shop || shop === '__ADD__') {
+    document.getElementById('upload-result').innerHTML =
+      '<div class="info-box" style="background:#FEE2E2;color:#991B1B">✗ 請先選一個店家 / 客戶（或新增一個）</div>';
+    return;
+  }
   const result = document.getElementById('upload-result');
   result.innerHTML = `<div class="info-box">⏳ 上傳中：${file.name}${force?'（強制覆蓋）':''}</div>`;
   try {
@@ -2428,39 +2499,35 @@ async function loadShopeeStatus() {
     if (ready) {
       html = `
         <div style="padding:8px 12px;background:#DCFCE7;border-radius:6px;margin-bottom:10px">
-          <span style="display:inline-block;padding:3px 8px;background:#16A34A;color:#fff;border-radius:10px;font-size:11px;font-weight:600">● 真實 API 已啟用</span>
-          <span style="margin-left:10px;font-size:12px;color:#166534">已綁定 ${s.connected_shops} 個 shop</span>
+          <span style="display:inline-block;padding:3px 8px;background:#16A34A;color:#fff;border-radius:10px;font-size:11px;font-weight:600">● 已連接蝦皮官方資料</span>
+          <span style="margin-left:10px;font-size:12px;color:#166534">已連結 ${s.connected_shops} 個店家</span>
         </div>
-        <div style="font-size:12px;color:var(--text-muted)">點下方按鈕同步商品資料（rating / stock / reviews）</div>
+        <div style="font-size:12px;color:var(--text-muted)">點下方按鈕同步各店家的商品評分 / 庫存 / 評論數</div>
         <div id="shopee-sync-buttons" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px"></div>
       `;
     } else {
       html = `
         <div style="padding:8px 12px;background:#FEF3C7;border-radius:6px;margin-bottom:10px">
-          <span style="display:inline-block;padding:3px 8px;background:#94A3B8;color:#fff;border-radius:10px;font-size:11px;font-weight:600">○ Mock 模式</span>
-          <span style="margin-left:10px;font-size:12px;color:#92400E">沒設 partner_id，同步商品會回傳假資料</span>
+          <span style="display:inline-block;padding:3px 8px;background:#94A3B8;color:#fff;border-radius:10px;font-size:11px;font-weight:600">○ 示範模式（顯示假資料）</span>
+          <span style="margin-left:10px;font-size:12px;color:#92400E">尚未跟蝦皮申請官方資料權限，目前同步商品會給示範用的假資料</span>
         </div>
         <div style="font-size:12px;color:var(--text-muted)">
-          檢查清單：
+          目前狀態：
           <ul style="margin:6px 0 0 18px;padding:0">
-            <li>SHOPEE_PARTNER_ID 環境變數：${s.partner_id_set ? '✓' : '✗ 未設'}</li>
-            <li>SHOPEE_PARTNER_KEY 環境變數：${s.partner_key_set ? '✓' : '✗ 未設'}</li>
-            <li>API Host：<code>${s.api_host}</code></li>
+            <li>蝦皮合作夥伴編號：${s.partner_id_set ? '✓ 已設定' : '✗ 尚未設定'}</li>
+            <li>蝦皮合作夥伴金鑰：${s.partner_key_set ? '✓ 已設定' : '✗ 尚未設定'}</li>
           </ul>
         </div>
-        <div style="margin-top:12px;padding:10px;background:#F1F5F9;border-radius:6px;font-size:11px;color:#475569">
-          <strong>啟用真實 API：</strong>
+        <div style="margin-top:12px;padding:10px;background:#F1F5F9;border-radius:6px;font-size:12px;color:#475569">
+          <strong>這塊是什麼？</strong>蝦皮匯出的廣告 CSV 沒有「商品評分、庫存、評論數」。
+          這塊串接蝦皮官方資料，可以把這些補進「商品健康度」頁面。
+          <strong style="display:block;margin-top:8px">怎麼啟用（要工程師協助一次性設定）：</strong>
           <ol style="margin:6px 0 0 18px;padding:0">
-            <li>到 <a href="https://open.shopee.com" target="_blank">open.shopee.com</a> 註冊 Partner 帳號</li>
-            <li>建立 App，拿 partner_id + partner_key（蝦皮審核 5-10 工作天）</li>
-            <li>停 server，設環境變數重啟：<br>
-              <code>set SHOPEE_PARTNER_ID=your_id</code><br>
-              <code>set SHOPEE_PARTNER_KEY=your_key</code><br>
-              <code>python server.py</code>
-            </li>
-            <li>賣家在「整合與設定」綁定店家（OAuth）→ 即可同步</li>
+            <li>到蝦皮開放平台 <a href="https://open.shopee.com" target="_blank">open.shopee.com</a> 申請成為合作夥伴（蝦皮審核約 5-10 個工作天）</li>
+            <li>拿到「合作夥伴編號」和「金鑰」後，交給工程師設定到系統</li>
+            <li>賣家在「整合與設定」頁授權登入後，即可同步真實商品資料</li>
           </ol>
-          <strong style="display:block;margin-top:8px;color:#7C2D12">⚠️ 蝦皮 Open API 不提供廣告數據（花費/ROAS/點擊），只能補商品/訂單。廣告數據請繼續用 CSV 上傳或資料夾自動處理。</strong>
+          <strong style="display:block;margin-top:8px;color:#7C2D12">⚠️ 注意：蝦皮官方資料「不包含」廣告花費 / ROAS / 點擊（蝦皮不開放廣告數據）。廣告數字請繼續用 CSV 上傳。這塊只是額外補商品評分/庫存。</strong>
         </div>`;
     }
     document.getElementById('shopee-status-box').innerHTML = html;
@@ -2499,38 +2566,34 @@ async function loadEmailStatus() {
     if (ready) {
       html = `
         <div style="padding:8px 12px;background:#DCFCE7;border-radius:6px;margin-bottom:10px">
-          <span style="display:inline-block;padding:3px 8px;background:#16A34A;color:#fff;border-radius:10px;font-size:11px;font-weight:600">● 真實寄送已啟用</span>
-          <span style="margin-left:10px;font-size:12px;color:#166534">寄件人：<code>${s.from_email}</code></span>
+          <span style="display:inline-block;padding:3px 8px;background:#16A34A;color:#fff;border-radius:10px;font-size:11px;font-weight:600">● 真實寄信已啟用</span>
+          <span style="margin-left:10px;font-size:12px;color:#166534">寄件人信箱：<code>${s.from_email}</code></span>
         </div>
         <div style="font-size:12px;color:var(--text-muted)">
-          月報「📤 寄出月報」按鈕會透過 SendGrid 真實寄送到客戶 email。
+          在「客戶 CRM + 月報」頁按「📤 寄出月報」，會真的寄一封月報到客戶的 email。
         </div>`;
     } else {
       html = `
         <div style="padding:8px 12px;background:#FEF3C7;border-radius:6px;margin-bottom:10px">
-          <span style="display:inline-block;padding:3px 8px;background:#94A3B8;color:#fff;border-radius:10px;font-size:11px;font-weight:600">○ Mock 模式</span>
-          <span style="margin-left:10px;font-size:12px;color:#92400E">月報「寄出」只會記到 log，不會真寄</span>
+          <span style="display:inline-block;padding:3px 8px;background:#94A3B8;color:#fff;border-radius:10px;font-size:11px;font-weight:600">○ 示範模式（不會真的寄信）</span>
+          <span style="margin-left:10px;font-size:12px;color:#92400E">按「寄出月報」只會記錄一筆，不會真的寄到客戶信箱</span>
         </div>
         <div style="font-size:12px;color:var(--text-muted)">
-          檢查清單：
+          目前狀態：
           <ul style="margin:6px 0 0 18px;padding:0">
-            <li>SDK 已裝：${s.sdk_installed ? '✓' : '✗ 請 <code>pip install sendgrid</code>'}</li>
-            <li>SENDGRID_API_KEY 環境變數：${s.api_key_set ? '✓' : '✗ 未設定'}</li>
-            <li>SENDGRID_FROM_EMAIL 環境變數：${s.from_email ? '✓ <code>'+s.from_email+'</code>' : '✗ 未設定'}</li>
+            <li>寄信功能套件：${s.sdk_installed ? '✓ 已安裝' : '✗ 尚未安裝（請工程師協助）'}</li>
+            <li>寄信服務金鑰：${s.api_key_set ? '✓ 已設定' : '✗ 尚未設定'}</li>
+            <li>寄件人信箱：${s.from_email ? '✓ '+s.from_email : '✗ 尚未設定'}</li>
           </ul>
         </div>
-        <div style="margin-top:12px;padding:10px;background:#F1F5F9;border-radius:6px;font-size:11px;color:#475569">
-          <strong>啟用真實寄送：</strong>
+        <div style="margin-top:12px;padding:10px;background:#F1F5F9;border-radius:6px;font-size:12px;color:#475569">
+          <strong>怎麼啟用真實寄信（要工程師協助一次性設定）：</strong>
           <ol style="margin:6px 0 0 18px;padding:0">
-            <li>到 <a href="https://signup.sendgrid.com" target="_blank">sendgrid.com</a> 註冊免費帳號（每天 100 封免費）</li>
-            <li>Settings → API Keys → 建立新 key（複製出來，只會顯示一次）</li>
-            <li>Settings → Sender Authentication → 驗證寄件信箱</li>
-            <li>停掉 server，設環境變數後重啟：<br>
-              <code>set SENDGRID_API_KEY=SG.xxx</code><br>
-              <code>set SENDGRID_FROM_EMAIL=you@verified.com</code><br>
-              <code>python server.py</code>
-            </li>
+            <li>到寄信服務商 <a href="https://signup.sendgrid.com" target="_blank">SendGrid</a> 註冊免費帳號（每天 100 封免費，夠用）</li>
+            <li>申請一組「寄信金鑰」並驗證你的寄件信箱</li>
+            <li>把金鑰和信箱交給工程師設定到系統，即可真實寄送</li>
           </ol>
+          <span style="display:block;margin-top:6px;color:#92400E">在這之前，月報還是可以「下載 PDF」自己寄給客戶，不影響使用。</span>
         </div>`;
     }
     document.getElementById('email-status-box').innerHTML = html;
@@ -2812,8 +2875,8 @@ async function loadAiBadge() {
     const s = await api.getAiStatus();
     const badge = document.getElementById('ai-mode-badge');
     if (badge) {
-      if (s.ready) badge.innerHTML = `<span style="background:#16A34A;color:#fff;padding:2px 8px;border-radius:8px">● Claude (${s.model})</span>`;
-      else badge.innerHTML = `<span style="background:#94A3B8;color:#fff;padding:2px 8px;border-radius:8px">○ 規則式（沒設 ANTHROPIC_API_KEY）</span>`;
+      if (s.ready) badge.innerHTML = `<span style="background:#16A34A;color:#fff;padding:2px 8px;border-radius:8px">● AI 深入分析已啟用</span>`;
+      else badge.innerHTML = `<span style="background:#94A3B8;color:#fff;padding:2px 8px;border-radius:8px">○ 內建快速分析（未接 AI；建議仍可用）</span>`;
     }
   } catch (e) { /* 靜默 */ }
 }
@@ -2828,12 +2891,10 @@ window.onGenerateAiInsights = async function() {
     const meta = r._meta || {};
     const isReal = meta.source === 'claude';
     const srcBadge = isReal
-      ? `<span style="background:#16A34A;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px">● Claude</span>`
-      : `<span style="background:#94A3B8;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px">○ 規則式分析</span>`;
+      ? `<span style="background:#16A34A;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px">● AI 深入分析</span>`
+      : `<span style="background:#94A3B8;color:#fff;padding:2px 8px;border-radius:8px;font-size:11px">○ 內建快速分析</span>`;
     const usage = meta.usage || {};
-    const usageStr = isReal && usage.input_tokens
-      ? `<span style="font-size:10px;color:var(--text-muted);margin-left:8px">in:${usage.input_tokens} out:${usage.output_tokens} cache_read:${usage.cache_read_input_tokens||0}</span>`
-      : '';
+    const usageStr = '';
 
     const renderList = (items, color, icon) => `
       <ul style="margin:4px 0;padding-left:22px">
@@ -2842,8 +2903,8 @@ window.onGenerateAiInsights = async function() {
 
     box.innerHTML = `
       <div style="margin-bottom:10px">${srcBadge}${usageStr}
-        ${meta.fallback ? '<span style="background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:8px;font-size:10px;margin-left:6px">⚠️ Claude 失敗，使用規則式 fallback</span>' : ''}
-        ${meta.parse_error ? '<span style="background:#FEE2E2;color:#991B1B;padding:2px 8px;border-radius:8px;font-size:10px;margin-left:6px">⚠️ JSON 解析失敗</span>' : ''}
+        ${meta.fallback ? '<span style="background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:8px;font-size:10px;margin-left:6px">⚠️ AI 暫時無法使用，改用內建分析</span>' : ''}
+        ${meta.parse_error ? '<span style="background:#FEE2E2;color:#991B1B;padding:2px 8px;border-radius:8px;font-size:10px;margin-left:6px">⚠️ AI 回覆格式異常，已盡量呈現</span>' : ''}
       </div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
         <div style="padding:12px;background:#FEE2E2;border-radius:8px;border-left:4px solid #DC2626">
@@ -3225,9 +3286,9 @@ window.onSyncHealthFromShopee = async function() {
     if (errors.length && r.updated === 0) {
       resultBox.innerHTML = `
         <div class="info-box" style="background:#FEE2E2;color:#991B1B;margin:8px 0">
-          ✗ 全部失敗（${errors.length} 個商品）<br>
-          <span style="font-size:11px">主因：${errors[0]?.error || '未知'}</span><br>
-          <span style="font-size:11px">建議：1) 安裝 cloudscraper：<code>pip install cloudscraper</code> 2) 或申請 Shopee Partner API</span>
+          ✗ 同步失敗（${errors.length} 個商品）<br>
+          <span style="font-size:11px">原因：蝦皮防機器人保護擋住了，目前抓不到</span><br>
+          <span style="font-size:11px">解法：申請蝦皮開放平台合作夥伴後，請工程師設定金鑰即可。在那之前商品健康度用系統推估值</span>
         </div>`;
     } else {
       resultBox.innerHTML = `
@@ -3314,7 +3375,7 @@ window.onShopeeSearch = async function() {
         `).join('')}</tbody>
       </table>`;
   } catch (e) {
-    wrap.innerHTML = `<div class="info-box" style="background:#FEE2E2;color:#991B1B">✗ ${e.message}<br><span style="font-size:11px">蝦皮反爬蟲擋住了。建議：<br>1. 安裝 cloudscraper：<code>pip install cloudscraper</code><br>2. 或申請 Shopee Partner API（5-10 天審核）</span></div>`;
+    wrap.innerHTML = `<div class="info-box" style="background:#FEE2E2;color:#991B1B">✗ 目前抓不到競品資料<br><span style="font-size:11px">蝦皮有防機器人保護擋住了。正式做法：申請蝦皮開放平台合作夥伴（審核約 5-10 個工作天），核准後請工程師設定金鑰即可</span></div>`;
   }
 };
 
@@ -3759,6 +3820,7 @@ Promise.all([
   loadSnapshots(), loadSnapChart(),
   loadCompetitorKeywords(), loadPriceChart('3C'),
   loadConnections(), loadUploads(), loadCompetitorList(), loadAdjustments(),
+  loadUploadShopOptions(),
   loadWatcher(), loadEmailStatus(), loadShopeeStatus(),
   loadRules(),
   loadKwGroups(), loadSeasonal(), loadTrendsDaily(),
