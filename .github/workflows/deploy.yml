@@ -50,6 +50,7 @@ jobs:
           gcloud builds submit \
             --project=${{ secrets.GCP_PROJECT }} \
             --tag=${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT }}/cloud-run-source-deploy/${{ env.SERVICE }} \
+            --suppress-logs \
             .
 
       - name: 部署 Cloud Run
