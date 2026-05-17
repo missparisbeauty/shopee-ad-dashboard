@@ -2133,6 +2133,58 @@ def send_monthly_report(body: dict):
     return ok(record)
 
 
+@app.post("/api/v1/cron/monthly-reports")
+def cron_monthly_reports():
+    """Cloud Scheduler 每月 1 號呼叫 → 自動產所有有資料客戶的「上月」月報並寄送。
+    認證走 auth middleware 的 X-Cron-Token（不是 Basic Auth）。
+    SendGrid 未設定時是 mock（只記 log），設定後自動真寄。
+    """
+    from datetime import date as _date
+    today = _date.today()
+    # 上個月（year-month 字串）
+    first_this_month = today.replace(day=1)
+    last_month_end = first_this_month - timedelta(days=1)
+    target_month = last_month_end.strftime("%Y-%m")
+
+    results = []
+    for cust in _load_customers():
+        cid = cust["id"]
+        shop_ids = cust.get("shop_ids") or []
+        # 跳過沒綁店家或該店家沒資料的客戶
+        has_data = any(s in ad_data_store.list_shops_with_data() for s in shop_ids)
+        if not has_data:
+            results.append({"customer_id": cid, "name": cust.get("name"),
+                             "status": "skipped", "reason": "no_csv_data"})
+            continue
+        to_email = cust.get("email")
+        if not to_email:
+            results.append({"customer_id": cid, "name": cust.get("name"),
+                             "status": "skipped", "reason": "no_email"})
+            continue
+        try:
+            report_data = get_monthly_report(cid, month=target_month)["data"]
+            subject = f"{cust['name']} · {target_month} 月報"
+            r = email_client.send_monthly_report(
+                to_email=to_email, subject=subject, report_data=report_data)
+            results.append({"customer_id": cid, "name": cust.get("name"),
+                            "status": r["status"], "to_email": to_email,
+                            "month": target_month})
+        except Exception as e:
+            results.append({"customer_id": cid, "name": cust.get("name"),
+                            "status": "error", "error": f"{type(e).__name__}: {e}"})
+
+    # 寫 log
+    log = json.loads(REPORT_LOG_FILE.read_text(encoding="utf-8")) if REPORT_LOG_FILE.exists() else []
+    log.append({"id": f"CRON-{int(time.time()*1000)}", "type": "monthly_batch",
+                "month": target_month, "ran_at": datetime.now(timezone.utc).isoformat(),
+                "results": results})
+    REPORT_LOG_FILE.write_text(json.dumps(log, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    sent = sum(1 for r in results if r["status"] in ("sent", "mock"))
+    return ok({"month": target_month, "total_customers": len(results),
+               "sent_or_mock": sent, "results": results})
+
+
 @app.get("/api/v1/reports/log")
 def get_report_log():
     if not REPORT_LOG_FILE.exists():
