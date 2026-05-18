@@ -194,20 +194,29 @@ def get_accounts():
 # ─────────────────────────── 高效時段熱力圖 ───────────────────────────
 
 @app.get("/api/v1/heatmap")
-def get_heatmap(account_id: str = "S001", category: str = "all"):
-    days = ["週一", "週二", "週三", "週四", "週五", "週六", "週日"]
-    cells = []
-    for di, d in enumerate(days):
-        for h in range(24):
-            v = random.random()
-            if h in (12, 21, 22):
-                v = min(1, v + 0.4)
-            if 2 <= h <= 6:
-                v *= 0.3
-            cells.append({"day": d, "hour": h, "roas": round(v * 5, 2), "level": _level(v)})
+def get_heatmap(account_id: str = "S001", category: str = "all",
+                shop: str | None = None):
+    """高效星期 ROAS（真實 CSV）。
+    蝦皮廣告 CSV 沒有「幾點」欄位，最細只能到星期粒度，無法做分時熱力圖。
+    沒上傳 CSV 時回空 + 提示，不再用 mock。
+    """
+    if not ad_data_store.has_real_data():
+        return ok({"account_id": account_id, "category": category,
+                   "cells": [], "peak_days": [],
+                   "_meta": {"source": "empty",
+                             "note": "尚未上傳 CSV，無星期 ROAS 資料"}})
+    agg = ad_data_store.aggregate_weekday_roas(shop=shop)
+    cells = agg["cells"]
+    roas_vals = [c["roas"] for c in cells if c["roas"] > 0]
+    max_roas = max(roas_vals) if roas_vals else 0
+    for c in cells:
+        c["level"] = _level(c["roas"] / max_roas) if max_roas else 0
+    peak_days = [c["day"] for c in cells if max_roas and c["roas"] == max_roas]
     return ok({"account_id": account_id, "category": category,
-               "cells": cells,
-               "peak_hours": [12, 13, 21, 22, 23]})
+               "cells": cells, "peak_days": peak_days,
+               "_meta": {"source": "real",
+                         "window_days": agg["window_days"],
+                         "note": "蝦皮廣告 CSV 無「幾點」欄位，僅能呈現星期粒度"}})
 
 
 def _level(v: float) -> int:
