@@ -1714,35 +1714,8 @@ def get_competitor_price_drops():
 
 
 # ─────────────────────────── 關鍵字研究（P1） ───────────────────────────
-
-@app.get("/api/v1/keywords/explore")
-def explore_keywords(seed: str = "充電器"):
-    """關鍵字探索：模擬蝦皮搜尋建議 API"""
-    base_volume = random.randint(15000, 50000)
-    expansions = {
-        "充電器": [
-            {"kw":"快充充電器","volume":48000,"competition":"高","cpc":12.5,"my_rank":3,"trend":[40,42,45,46,48,48,48]},
-            {"kw":"GaN 充電器","volume":22000,"competition":"中","cpc":8.8,"my_rank":None,"trend":[12,14,16,18,20,21,22]},
-            {"kw":"無線充電器","volume":18000,"competition":"中","cpc":7.2,"my_rank":12,"trend":[18,18,17,17,18,18,18]},
-            {"kw":"車用充電器","volume":12000,"competition":"低","cpc":4.5,"my_rank":None,"trend":[10,11,11,12,12,12,12]},
-            {"kw":"iPhone 充電器","volume":35000,"competition":"高","cpc":15.0,"my_rank":7,"trend":[32,33,34,35,35,35,35]},
-            {"kw":"PD 快充","volume":9800,"competition":"中","cpc":6.0,"my_rank":None,"trend":[7,8,8,9,9,10,10]},
-        ],
-        "保濕": [
-            {"kw":"保濕精華液","volume":28000,"competition":"高","cpc":15.2,"my_rank":7,"trend":[26,27,27,28,28,28,28]},
-            {"kw":"保濕面膜","volume":42000,"competition":"高","cpc":18.0,"my_rank":None,"trend":[40,41,42,42,42,42,42]},
-            {"kw":"玻尿酸保濕","volume":15000,"competition":"中","cpc":9.5,"my_rank":12,"trend":[13,14,14,15,15,15,15]},
-            {"kw":"乾肌保濕","volume":8200,"competition":"低","cpc":5.2,"my_rank":None,"trend":[7,7,8,8,8,8,8]},
-            {"kw":"保濕乳液","volume":18000,"competition":"中","cpc":11.0,"my_rank":15,"trend":[17,17,18,18,18,18,18]},
-        ],
-    }
-    items = expansions.get(seed, [
-        {"kw":f"{seed} 推薦","volume":random.randint(10000,30000),"competition":"中","cpc":round(random.uniform(5,15),1),"my_rank":random.choice([None,5,10,15]),"trend":[random.randint(8,30) for _ in range(7)]},
-        {"kw":f"{seed} 平價","volume":random.randint(5000,15000),"competition":"低","cpc":round(random.uniform(3,8),1),"my_rank":None,"trend":[random.randint(5,15) for _ in range(7)]},
-        {"kw":f"高級 {seed}","volume":random.randint(3000,10000),"competition":"低","cpc":round(random.uniform(4,12),1),"my_rank":None,"trend":[random.randint(3,10) for _ in range(7)]},
-    ])
-    return ok({"seed": seed, "items": items})
-
+# 註：關鍵字探索已改走真實 /api/v1/external/trends/explore（Google Trends），
+#     原 /keywords/explore mock endpoint 已移除（無呼叫者）。
 
 @app.get("/api/v1/keywords/groups")
 def get_keyword_groups():
