@@ -49,10 +49,12 @@ COLUMN_ALIASES: dict[str, list[str]] = {
     "clicks": [
         "點擊數", "點擊次數", "點擊", "clicks", "click",
         "累積點擊數", "累積點擊", "總點擊", "總點擊數",
+        "商品點擊數",  # 蝦皮 CPC 報表的商品頁點擊數
     ],
     "ctr": [
         "點擊率", "ctr", "click rate", "click_rate", "點擊率(%)", "ctr(%)",
         "累積點擊率",
+        "商品點擊率",  # 蝦皮 CPC 報表的商品頁點擊率
     ],
     "spend": [
         "花費", "廣告花費", "成本", "cost", "spend", "ad spend", "ad_spend", "費用",
@@ -61,6 +63,7 @@ COLUMN_ALIASES: dict[str, list[str]] = {
     "orders": [
         "訂單數", "訂單", "orders", "order count", "conv", "conversions", "轉換數", "成交筆數",
         "累積訂單數", "累計訂單數", "總訂單數", "直接訂單數", "間接訂單數", "訂單筆數",
+        "直接轉換數",  # 蝦皮 CPC 報表「直接轉換數」= 直接歸因訂單
     ],
     "units_sold": [
         "銷售件數", "件數", "units", "units sold", "sold", "銷售數量",
@@ -424,19 +427,40 @@ def _find_header_row(rows: list[list[str]], max_scan: int = 20) -> tuple[int, in
 
 
 def detect_report_type(column_map: dict[str, str], rows: list[dict[str, Any]]) -> str:
-    """偵測報表類型 — 看欄位映射有沒有 keyword/placement。
-    回傳：
-      - "keyword_placement"：CSV 含「關鍵字」或「版位」欄位 → 用於關鍵字/版位層級分析
-      - "overall"：純廣告活動級總體報表（預設）
+    """偵測報表類型 — 判斷是「關鍵字/版位層級」還是「廣告活動總體」報表。
+
+    判斷邏輯：
+    - 有 keyword 欄位 → 必為 keyword_placement
+    - 有 placement 欄位，且 placement 值不是蝦皮「廣告設定版位」關鍵字（所有/全站/搜尋...）
+      → keyword_placement（每列代表一個版位的分析數據）
+    - 其餘 → overall
+
+    蝦皮「總體報表」也有「版位」欄，但值是廣告設定（如「所有」「全站推廣」），
+    不是版位層級分析，不應誤判為 keyword_placement。
     """
+    # 廣告設定版位值（蝦皮「總體報表」的版位欄常見值）
+    AD_SETTING_PLACEMENTS = {
+        "所有", "全站", "全站推廣", "全站推廣-自訂roi", "搜尋", "推薦",
+        "gmv max auto bidding (shop)", "gmv max auto bidding",
+        "all", "search", "recommended",
+        "-", "—", "",  # 空值/佔位符
+    }
+
     mapped_stds = set(column_map.values())
-    has_keyword = "keyword" in mapped_stds
-    has_placement = "placement" in mapped_stds
-    if has_keyword or has_placement:
-        # 雙重檢查：實際解析後的 rows 至少有一筆有 keyword/placement 值
+
+    # 有 keyword 欄位 → 一定是關鍵字層級報表
+    if "keyword" in mapped_stds:
         for r in rows:
-            if r.get("keyword") or r.get("placement"):
+            if r.get("keyword"):
                 return "keyword_placement"
+
+    # 有 placement 欄位 → 看值是不是「版位分析數據」還是「廣告設定描述」
+    if "placement" in mapped_stds:
+        for r in rows:
+            val = (r.get("placement") or "").strip()
+            if val and val.lower() not in AD_SETTING_PLACEMENTS:
+                return "keyword_placement"  # 有非廣告設定的版位值 → 真正的版位分析
+
     return "overall"
 
 
