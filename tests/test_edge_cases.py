@@ -246,3 +246,109 @@ class TestLifetimeFallbackDate:
         r = p.parse_csv(csv.encode("utf-8-sig"))
         assert r.summary["is_lifetime_report"] is False
         assert r.summary["period_days"] == 1
+
+
+# ─────────────────────────── 報表類型偵測 ───────────────────────────
+
+class TestReportTypeDetection:
+    """parser 應該能區分「總體廣告」vs「關鍵字/版位」CSV"""
+
+    def test_overall_report_no_keyword_column(self):
+        """純總體報表 → report_type == 'overall'"""
+        import ad_report_parser as p
+        csv = (
+            "期間,2026/05/03 - 2026/05/03\n"
+            "\n"
+            "商品 ID,廣告名稱,曝光數,點擊數,花費,銷售金額\n"
+            "PROD1,廣告A,1000,30,500,2000\n"
+        )
+        r = p.parse_csv(csv.encode("utf-8-sig"))
+        assert r.summary["report_type"] == "overall"
+
+    def test_keyword_report_with_keyword_column(self):
+        """有「關鍵字」欄 → report_type == 'keyword_placement'"""
+        import ad_report_parser as p
+        csv = (
+            "期間,2026/05/03 - 2026/05/03\n"
+            "\n"
+            "關鍵字,曝光數,點擊數,花費,銷售金額\n"
+            "保濕乳液,1000,30,500,2000\n"
+            "美白精華,800,25,400,1500\n"
+        )
+        r = p.parse_csv(csv.encode("utf-8-sig"))
+        assert r.summary["report_type"] == "keyword_placement"
+        assert r.rows[0]["keyword"] == "保濕乳液"
+        assert r.rows[1]["keyword"] == "美白精華"
+
+    def test_placement_report_with_placement_column(self):
+        """有「版位」欄 → report_type == 'keyword_placement'"""
+        import ad_report_parser as p
+        csv = (
+            "期間,2026/05/03 - 2026/05/03\n"
+            "\n"
+            "版位,曝光數,點擊數,花費,銷售金額\n"
+            "搜尋結果頁,5000,150,800,3500\n"
+            "分類頁推薦,3000,80,400,1800\n"
+        )
+        r = p.parse_csv(csv.encode("utf-8-sig"))
+        assert r.summary["report_type"] == "keyword_placement"
+        assert r.rows[0]["placement"] == "搜尋結果頁"
+
+    def test_mixed_keyword_and_placement(self):
+        """同時有 keyword 跟 placement → keyword_placement"""
+        import ad_report_parser as p
+        csv = (
+            "期間,2026/05/03 - 2026/05/03\n"
+            "\n"
+            "關鍵字,版位,曝光數,點擊數,花費,銷售金額\n"
+            "保濕乳液,搜尋頁,1000,30,500,2000\n"
+        )
+        r = p.parse_csv(csv.encode("utf-8-sig"))
+        assert r.summary["report_type"] == "keyword_placement"
+        assert r.rows[0]["keyword"] == "保濕乳液"
+        assert r.rows[0]["placement"] == "搜尋頁"
+
+    def test_english_keyword_alias(self):
+        """英文 'Keyword' 也要認"""
+        import ad_report_parser as p
+        csv = (
+            "Date,Keyword,Impressions,Clicks,Cost,Sales\n"
+            "2026/05/03,moisturizer,1000,30,500,2000\n"
+        )
+        r = p.parse_csv(csv.encode("utf-8-sig"))
+        assert r.summary["report_type"] == "keyword_placement"
+        assert r.rows[0]["keyword"] == "moisturizer"
+
+    def test_keyword_only_row_kept_no_product(self):
+        """只有 keyword 沒 product_id 的 row 也要保留（不被 skip）"""
+        import ad_report_parser as p
+        csv = (
+            "關鍵字,曝光數,點擊數,花費,銷售金額\n"
+            "保濕乳液,1000,30,500,2000\n"
+        )
+        r = p.parse_csv(csv.encode("utf-8-sig"))
+        assert len(r.rows) == 1
+        assert r.rows[0]["keyword"] == "保濕乳液"
+        # 沒 product_id 但有 keyword 應該不算被 skip
+        assert r.skipped_rows == 0
+
+
+class TestDetectReportTypeFunction:
+    """直接測試 detect_report_type() helper"""
+
+    def test_empty_returns_overall(self):
+        import ad_report_parser as p
+        assert p.detect_report_type({}, []) == "overall"
+
+    def test_has_keyword_in_column_map_and_rows(self):
+        import ad_report_parser as p
+        column_map = {"關鍵字": "keyword", "花費": "spend"}
+        rows = [{"keyword": "test", "spend": 100}]
+        assert p.detect_report_type(column_map, rows) == "keyword_placement"
+
+    def test_mapped_but_all_rows_empty_keyword_returns_overall(self):
+        """欄位有對到但實際 rows 都沒填 keyword → 還是 overall（fallback）"""
+        import ad_report_parser as p
+        column_map = {"關鍵字": "keyword"}
+        rows = [{"spend": 100}, {"revenue": 200}]
+        assert p.detect_report_type(column_map, rows) == "overall"

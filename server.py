@@ -1042,6 +1042,42 @@ def ad_data_products(
                "_meta": {"source": "real", "shop": shop, "period": period}})
 
 
+@app.get("/api/v1/keywords/performance")
+def keyword_performance(
+    shop: str | None = None,
+    period: str = Query("month", pattern="^(yesterday|week|month)$"),
+    limit: int = Query(100, ge=1, le=500),
+):
+    """關鍵字真實表現（從上傳的關鍵字/版位 CSV 聚合）。沒資料 → items=[]。"""
+    items = ad_data_store.aggregate_keywords(shop=shop, period=period, limit=limit)
+    return ok({
+        "items": items, "total": len(items),
+        "_meta": {
+            "source": "real" if items else "empty",
+            "shop": shop, "period": period,
+            "note": None if items else "尚未上傳含「關鍵字」欄的 CSV（蝦皮匯出選『關鍵字/版位層級數據』）",
+        },
+    })
+
+
+@app.get("/api/v1/placements/performance")
+def placement_performance(
+    shop: str | None = None,
+    period: str = Query("month", pattern="^(yesterday|week|month)$"),
+    limit: int = Query(100, ge=1, le=500),
+):
+    """版位真實表現（從上傳的關鍵字/版位 CSV 聚合）。"""
+    items = ad_data_store.aggregate_placements(shop=shop, period=period, limit=limit)
+    return ok({
+        "items": items, "total": len(items),
+        "_meta": {
+            "source": "real" if items else "empty",
+            "shop": shop, "period": period,
+            "note": None if items else "尚未上傳含「版位」欄的 CSV",
+        },
+    })
+
+
 # ─────────────────────────── 資料夾自動上傳 watcher ───────────────────────────
 
 @app.get("/api/v1/watcher/status")
