@@ -762,8 +762,8 @@
   <section class="page" id="page-hours">
     <div class="page-header">
       <div>
-        <div class="page-title">高效時段視覺化 <span style="font-size:11px;background:#94A3B8;color:#fff;padding:2px 8px;border-radius:8px;margin-left:6px">○ Mock 數據</span></div>
-        <div class="page-sub">7天 × 24小時熱力圖 <span style="font-size:11px;background:#94A3B8;color:#fff;padding:2px 8px;border-radius:8px;margin-left:6px">○ 示範資料</span><br><span style="color:#D97706;font-size:11px">蝦皮匯出的 CSV 沒有「幾點」這個資訊，所以這頁是示範用的；之後串接蝦皮官方訂單資料才能看真實時段</span></div>
+        <div class="page-title">高效星期分析 <span style="font-size:11px;background:#16A34A;color:#fff;padding:2px 8px;border-radius:8px;margin-left:6px">● 真實 CSV</span></div>
+        <div class="page-sub">各星期 ROAS（近 60 天）<span style="font-size:11px;background:#16A34A;color:#fff;padding:2px 8px;border-radius:8px;margin-left:6px">● 真實資料</span><br><span style="color:#D97706;font-size:11px">蝦皮匯出的 CSV 沒有「幾點」這個資訊，只能算到「星期」粒度；要看分時時段需串接蝦皮官方訂單資料</span></div>
       </div>
       <div class="seg">
         <button class="active">全部</button>
@@ -773,16 +773,16 @@
       </div>
     </div>
     <div class="card">
-      <div class="card-head"><div class="card-title">某店家 · 過去 7 天 ROAS 熱力圖</div></div>
+      <div class="card-head"><div class="card-title">各星期 ROAS（近 60 天真實 CSV 聚合）</div></div>
       <div style="padding:20px">
-        <div class="heatmap" id="heatmap"></div>
+        <div id="heatmap"></div>
         <div class="legend">
           <span><span class="legend-dot" style="background:#F0EBE5"></span>低</span>
           <span><span class="legend-dot" style="background:#FFE0D2"></span></span>
           <span><span class="legend-dot" style="background:#FFB68F"></span></span>
           <span><span class="legend-dot" style="background:#FF7337"></span></span>
           <span><span class="legend-dot" style="background:#EE4D2D"></span>高</span>
-          <span style="margin-left:16px">外框 = 蝦皮平台流量高峰</span>
+          <span style="margin-left:16px">外框 = ROAS 最高的星期</span>
         </div>
       </div>
     </div>
@@ -1088,20 +1088,15 @@
       <div class="card">
         <div class="card-head">
           <div>
-            <div class="card-title">🔍 關鍵字探索工具 <span style="font-size:11px;background:#94A3B8;color:#fff;padding:2px 8px;border-radius:8px;margin-left:6px">○ Mock</span></div>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">輸入種子詞 → 找出長尾、相關詞、藍海機會</div>
+            <div class="card-title">🔍 關鍵字探索工具 <span style="font-size:11px;background:#16A34A;color:#fff;padding:2px 8px;border-radius:8px;margin-left:6px">● 真實（Google Trends）</span></div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">輸入種子詞 → Google Trends 近 12 個月熱度趨勢 + 上升/熱門相關詞</div>
           </div>
           <div style="display:flex;gap:8px">
             <input type="text" id="kw-seed" placeholder="輸入種子詞..." value="充電器" style="padding:6px 12px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;width:200px">
             <button class="btn btn-primary" onclick="onExploreKw()" style="flex:0;padding:6px 14px">探索</button>
           </div>
         </div>
-        <table>
-          <thead>
-            <tr><th>關鍵字</th><th>月搜尋量</th><th>競爭度</th><th>建議 CPC</th><th>我方排名</th><th>搜尋趨勢</th><th></th></tr>
-          </thead>
-          <tbody id="kw-tbody"></tbody>
-        </table>
+        <div id="kw-explore-result" style="padding:18px 20px"><div style="color:var(--text-muted)">輸入種子詞後按「探索」，從 Google Trends 取得熱度趨勢與相關詞</div></div>
       </div>
     </div>
 
@@ -1898,21 +1893,32 @@ async function loadAccounts() {
 
 /* ────────── 熱力圖 ────────── */
 async function loadHeatmap() {
+  const COLORS = ['#F0EBE5','#FFE0D2','#FFB68F','#FF7337','#EE4D2D'];
   try {
     const r = await api.getHeatmap();
-    const days = ['週一','週二','週三','週四','週五','週六','週日'];
-    let html = '<div></div>';
-    for (let h = 0; h < 24; h++) html += `<div class="label" style="text-align:center">${h}</div>`;
-    days.forEach(d => {
-      html += `<div class="label">${d}</div>`;
-      for (let h = 0; h < 24; h++) {
-        const cell = r.cells.find(c => c.day === d && c.hour === h) || { roas:0, level:0 };
-        const lvl = cell.level === 0 ? '' : 'l' + cell.level;
-        const peak = r.peak_hours.includes(h) ? 'peak' : '';
-        html += `<div class="cell ${lvl} ${peak}" title="${d} ${h}:00 ROAS ${cell.roas}"></div>`;
-      }
-    });
-    document.getElementById('heatmap').innerHTML = html;
+    const el = document.getElementById('heatmap');
+    if (!r.cells || !r.cells.length) {
+      el.innerHTML = `<div style="color:var(--text-muted);padding:20px">${(r._meta && r._meta.note) || '尚無資料'}</div>`;
+      return;
+    }
+    const maxRoas = Math.max(...r.cells.map(c => c.roas), 0.01);
+    const peak = r.peak_days || [];
+    el.innerHTML = r.cells.map(c => {
+      const pct = c.roas > 0 ? Math.max(3, Math.round(c.roas / maxRoas * 100)) : 0;
+      const bg = COLORS[c.level || 0];
+      const ring = peak.includes(c.day) ? 'box-shadow:0 0 0 2px var(--accent)' : '';
+      const empty = c.days_count === 0;
+      return `<div style="display:flex;align-items:center;gap:10px;margin:7px 0">
+        <div style="width:42px;font-size:12px;color:var(--text-muted)">${c.day}</div>
+        <div style="flex:1;background:#F0EBE5;border-radius:4px;height:22px">
+          <div style="width:${pct}%;height:100%;background:${bg};border-radius:4px;${ring}"></div>
+        </div>
+        <div style="width:150px;font-size:12px;text-align:right">${
+          empty ? '<span style="color:var(--text-muted)">無資料</span>'
+                : `ROAS <strong>${c.roas}</strong> <span style="color:var(--text-muted)">· ${c.days_count} 天</span>`
+        }</div>
+      </div>`;
+    }).join('');
   } catch (e) {
     showError('heatmap', `載入熱力圖失敗：${e.message}`);
   }
@@ -3526,21 +3532,37 @@ window.onShopeeSearch = async function() {
 window.onExploreKw = async function() {
   const seed = document.getElementById('kw-seed').value.trim();
   if (!seed) return;
+  const box = document.getElementById('kw-explore-result');
+  box.innerHTML = '<div style="color:var(--text-muted)">查詢 Google Trends 中…</div>';
   try {
-    const r = await api.exploreKeywords(seed);
-    document.getElementById('kw-tbody').innerHTML = r.items.map(k => {
-      const compBadge = {'高':'🔴 高','中':'🟡 中','低':'🟢 低'}[k.competition];
-      return `<tr>
-        <td><strong>${k.kw}</strong></td>
-        <td class="num">${k.volume.toLocaleString()}</td>
-        <td>${compBadge}</td>
-        <td class="num">$${k.cpc}</td>
-        <td class="num">${k.my_rank ? '第 '+k.my_rank+' 名' : '<span style="color:var(--text-muted)">未投放</span>'}</td>
-        <td>${sparkline(k.trend)}</td>
-        <td><button class="btn" style="padding:4px 12px;font-size:11px">加入廣告</button></td>
-      </tr>`;
-    }).join('');
-  } catch (e) { showError('kw-tbody', '載入失敗：' + e.message); }
+    const r = await api.exploreKeywordTrends(seed);
+    const pts = (r.points || []).map(p => p.value);
+    if (pts.length < 2) {
+      const note = (r._meta && r._meta.note)
+        || 'Google Trends 查無此關鍵字的足夠資料（可換較熱門的種子詞）';
+      box.innerHTML = `<div style="color:#D97706;padding:8px">「${escHtml(seed)}」：${escHtml(note)}</div>`;
+      return;
+    }
+    const chips = (list, growthKey) => (list && list.length)
+      ? list.map(k => `<span style="display:inline-block;background:#F0EBE5;border-radius:12px;padding:4px 10px;font-size:12px">${escHtml(k.keyword)}<span style="color:${growthKey==='growth'?'#16A34A':'var(--text-muted)'};margin-left:5px">${growthKey==='growth'?'▲':''}${escHtml(k[growthKey])}</span></span>`).join('')
+      : '<span style="color:var(--text-muted);font-size:12px">無相關詞資料</span>';
+    box.innerHTML = `
+      <div style="display:flex;align-items:center;gap:18px;margin-bottom:16px">
+        <div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">「${escHtml(seed)}」近 12 個月熱度</div>
+          ${sparkline(pts)}
+        </div>
+        <div style="font-size:12px;color:var(--text-muted)">來源：Google Trends · 數值為相對熱度 0–100，非絕對搜尋量</div>
+      </div>
+      <div style="margin-bottom:12px">
+        <div style="font-weight:600;font-size:13px;margin-bottom:7px">📈 上升相關詞</div>
+        <div style="display:flex;flex-wrap:wrap;gap:7px">${chips(r.related_rising, 'growth')}</div>
+      </div>
+      <div>
+        <div style="font-weight:600;font-size:13px;margin-bottom:7px">🔥 熱門相關詞</div>
+        <div style="display:flex;flex-wrap:wrap;gap:7px">${chips(r.related_top, 'score')}</div>
+      </div>`;
+  } catch (e) { showError('kw-explore-result', '查詢失敗：' + e.message); }
 };
 
 async function loadKwGroups() {

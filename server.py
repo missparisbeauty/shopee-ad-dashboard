@@ -194,20 +194,29 @@ def get_accounts():
 # ─────────────────────────── 高效時段熱力圖 ───────────────────────────
 
 @app.get("/api/v1/heatmap")
-def get_heatmap(account_id: str = "S001", category: str = "all"):
-    days = ["週一", "週二", "週三", "週四", "週五", "週六", "週日"]
-    cells = []
-    for di, d in enumerate(days):
-        for h in range(24):
-            v = random.random()
-            if h in (12, 21, 22):
-                v = min(1, v + 0.4)
-            if 2 <= h <= 6:
-                v *= 0.3
-            cells.append({"day": d, "hour": h, "roas": round(v * 5, 2), "level": _level(v)})
+def get_heatmap(account_id: str = "S001", category: str = "all",
+                shop: str | None = None):
+    """高效星期 ROAS（真實 CSV）。
+    蝦皮廣告 CSV 沒有「幾點」欄位，最細只能到星期粒度，無法做分時熱力圖。
+    沒上傳 CSV 時回空 + 提示，不再用 mock。
+    """
+    if not ad_data_store.has_real_data():
+        return ok({"account_id": account_id, "category": category,
+                   "cells": [], "peak_days": [],
+                   "_meta": {"source": "empty",
+                             "note": "尚未上傳 CSV，無星期 ROAS 資料"}})
+    agg = ad_data_store.aggregate_weekday_roas(shop=shop)
+    cells = agg["cells"]
+    roas_vals = [c["roas"] for c in cells if c["roas"] > 0]
+    max_roas = max(roas_vals) if roas_vals else 0
+    for c in cells:
+        c["level"] = _level(c["roas"] / max_roas) if max_roas else 0
+    peak_days = [c["day"] for c in cells if max_roas and c["roas"] == max_roas]
     return ok({"account_id": account_id, "category": category,
-               "cells": cells,
-               "peak_hours": [12, 13, 21, 22, 23]})
+               "cells": cells, "peak_days": peak_days,
+               "_meta": {"source": "real",
+                         "window_days": agg["window_days"],
+                         "note": "蝦皮廣告 CSV 無「幾點」欄位，僅能呈現星期粒度"}})
 
 
 def _level(v: float) -> int:
@@ -1741,35 +1750,8 @@ def get_competitor_price_drops():
 
 
 # ─────────────────────────── 關鍵字研究（P1） ───────────────────────────
-
-@app.get("/api/v1/keywords/explore")
-def explore_keywords(seed: str = "充電器"):
-    """關鍵字探索：模擬蝦皮搜尋建議 API"""
-    base_volume = random.randint(15000, 50000)
-    expansions = {
-        "充電器": [
-            {"kw":"快充充電器","volume":48000,"competition":"高","cpc":12.5,"my_rank":3,"trend":[40,42,45,46,48,48,48]},
-            {"kw":"GaN 充電器","volume":22000,"competition":"中","cpc":8.8,"my_rank":None,"trend":[12,14,16,18,20,21,22]},
-            {"kw":"無線充電器","volume":18000,"competition":"中","cpc":7.2,"my_rank":12,"trend":[18,18,17,17,18,18,18]},
-            {"kw":"車用充電器","volume":12000,"competition":"低","cpc":4.5,"my_rank":None,"trend":[10,11,11,12,12,12,12]},
-            {"kw":"iPhone 充電器","volume":35000,"competition":"高","cpc":15.0,"my_rank":7,"trend":[32,33,34,35,35,35,35]},
-            {"kw":"PD 快充","volume":9800,"competition":"中","cpc":6.0,"my_rank":None,"trend":[7,8,8,9,9,10,10]},
-        ],
-        "保濕": [
-            {"kw":"保濕精華液","volume":28000,"competition":"高","cpc":15.2,"my_rank":7,"trend":[26,27,27,28,28,28,28]},
-            {"kw":"保濕面膜","volume":42000,"competition":"高","cpc":18.0,"my_rank":None,"trend":[40,41,42,42,42,42,42]},
-            {"kw":"玻尿酸保濕","volume":15000,"competition":"中","cpc":9.5,"my_rank":12,"trend":[13,14,14,15,15,15,15]},
-            {"kw":"乾肌保濕","volume":8200,"competition":"低","cpc":5.2,"my_rank":None,"trend":[7,7,8,8,8,8,8]},
-            {"kw":"保濕乳液","volume":18000,"competition":"中","cpc":11.0,"my_rank":15,"trend":[17,17,18,18,18,18,18]},
-        ],
-    }
-    items = expansions.get(seed, [
-        {"kw":f"{seed} 推薦","volume":random.randint(10000,30000),"competition":"中","cpc":round(random.uniform(5,15),1),"my_rank":random.choice([None,5,10,15]),"trend":[random.randint(8,30) for _ in range(7)]},
-        {"kw":f"{seed} 平價","volume":random.randint(5000,15000),"competition":"低","cpc":round(random.uniform(3,8),1),"my_rank":None,"trend":[random.randint(5,15) for _ in range(7)]},
-        {"kw":f"高級 {seed}","volume":random.randint(3000,10000),"competition":"低","cpc":round(random.uniform(4,12),1),"my_rank":None,"trend":[random.randint(3,10) for _ in range(7)]},
-    ])
-    return ok({"seed": seed, "items": items})
-
+# 註：關鍵字探索已改走真實 /api/v1/external/trends/explore（Google Trends），
+#     原 /keywords/explore mock endpoint 已移除（無呼叫者）。
 
 @app.get("/api/v1/keywords/groups")
 def get_keyword_groups():
