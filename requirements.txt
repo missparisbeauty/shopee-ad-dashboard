@@ -5,7 +5,7 @@ python-multipart==0.0.20         # FastAPI 處理 file upload form 必要
 
 # 外部整合（這些都有 mock fallback，可選）
 sendgrid==6.11.0           # 月報寄送
-anthropic==0.40.0          # AI 顧問建議
+openai==1.82.0             # AI 顧問建議
 cloudscraper==1.2.71       # 蝦皮 v4 反爬蟲（即使沒裝 server 也能跑）
 
 # 關鍵字研究（pytrends 配合 daily_trends RSS 雙軌）

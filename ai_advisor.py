@@ -2,14 +2,14 @@
 AI 廣告代操顧問
 ─────────────────────────
 責任：吃儀表板真實數據（KPI + 真實獲利 + Top 商品 + 規則觸發），
-     用 Claude API 產生「診斷 + 立即動作 + 本週計畫」三段結構化建議。
+     用 OpenAI API 產生「診斷 + 立即動作 + 本週計畫」三段結構化建議。
 
 對外公開函式：
     is_configured() → bool
     config_status() → dict
     generate_insights(report_data, customer=None) → dict
 
-未設 ANTHROPIC_API_KEY 時自動 fallback「規則式分析」 — 用簡單 if/else
+未設 OPENAI_API_KEY 時自動 fallback「規則式分析」 — 用簡單 if/else
 依據相同數據規則產生建議，比 mock 假資料有用，比 LLM 便宜。
 """
 from __future__ import annotations
@@ -19,31 +19,31 @@ import os
 from typing import Any
 
 try:
-    import anthropic
+    from openai import OpenAI
     _HAS_SDK = True
 except ImportError:
     _HAS_SDK = False
 
 # 可在環境變數覆寫
-MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
+MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o")
 MAX_TOKENS = 1024
 
 
 def is_configured() -> bool:
-    return _HAS_SDK and bool(os.environ.get("ANTHROPIC_API_KEY"))
+    return _HAS_SDK and bool(os.environ.get("OPENAI_API_KEY"))
 
 
 def config_status() -> dict:
     return {
         "sdk_installed": _HAS_SDK,
-        "api_key_set": bool(os.environ.get("ANTHROPIC_API_KEY")),
+        "api_key_set": bool(os.environ.get("OPENAI_API_KEY")),
         "model": MODEL,
         "ready": is_configured(),
         "mode": "real" if is_configured() else "rule_based",
     }
 
 
-# ─────────────────────────── System prompt（cache 用） ───────────────────────────
+# ─────────────────────────── System prompt ───────────────────────────
 
 SYSTEM_PROMPT = """你是蝦皮廣告代操業務的資深顧問，專長：
 - 解讀廣告數據（ROAS、CTR、ACoS、CPC）找出問題根因
@@ -78,7 +78,6 @@ def _rule_based_insights(report_data: dict) -> dict:
     immediate = []
     weekly = []
 
-    # 診斷
     if net_profit < 0:
         diagnosis.append(f"❌ 整體淨利為負（{net_profit:,}），廣告營收扣完成本反而虧損 {-net_profit:,}")
     elif net_profit > 0 and roas < 1:
@@ -91,7 +90,6 @@ def _rule_based_insights(report_data: dict) -> dict:
         if top1.get("revenue", 0) > top2.get("revenue", 0) * 3:
             diagnosis.append(f"⚠️ 營收過度集中：{top1['product_name']} 營收是第二名的 {round(top1['revenue']/top2['revenue'],1)} 倍")
 
-    # 立即動作
     losing = [p for p in top if (p.get("roas", 0) or 0) < 1]
     if losing:
         for p in losing[:2]:
@@ -99,7 +97,6 @@ def _rule_based_insights(report_data: dict) -> dict:
     if triggered:
         immediate.append(f"已有 {len(triggered)} 條自動規則觸發 — 到「預算與自動規則」頁面確認執行")
 
-    # 本週計畫
     winning = [p for p in top if (p.get("roas", 0) or 0) >= target_roas * 1.2]
     if winning:
         weekly.append(f"加碼預算到表現最好的商品：{', '.join(p['product_name'] for p in winning[:2])}（ROAS 都超標 20%）")
@@ -121,14 +118,13 @@ def _rule_based_insights(report_data: dict) -> dict:
     }
 
 
-# ─────────────────────────── Claude API ───────────────────────────
+# ─────────────────────────── OpenAI API ───────────────────────────
 
-def _claude_insights(report_data: dict, customer: dict | None = None) -> dict:
-    client = anthropic.Anthropic()
+def _openai_insights(report_data: dict, customer: dict | None = None) -> dict:
+    client = OpenAI()
     cust_name = (customer or {}).get("name", "未知客戶")
     target_roas = (customer or {}).get("target_roas", 3.0)
 
-    # 縮減 input 只送必要資訊
     kpi = report_data.get("kpi") or report_data.get("metrics") or {}
     profit = report_data.get("profit") or {}
     top = report_data.get("top_products") or []
@@ -161,57 +157,42 @@ def _claude_insights(report_data: dict, customer: dict | None = None) -> dict:
         ],
     }
 
-    msg = client.messages.create(
+    resp = client.chat.completions.create(
         model=MODEL,
         max_tokens=MAX_TOKENS,
-        system=[
-            {"type": "text", "text": SYSTEM_PROMPT,
-             "cache_control": {"type": "ephemeral"}},
+        response_format={"type": "json_object"},
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": "請根據以下儀表板數據，產生 JSON 格式的廣告優化建議：\n\n"
+                           + json.dumps(user_payload, ensure_ascii=False, indent=2),
+            },
         ],
-        messages=[{
-            "role": "user",
-            "content": "請根據以下儀表板數據，產生 JSON 格式的廣告優化建議：\n\n"
-                       + json.dumps(user_payload, ensure_ascii=False, indent=2),
-        }],
     )
 
-    raw = "".join(b.text for b in msg.content if hasattr(b, "text"))
-
-    # 嘗試 parse JSON（Claude 通常會包在 ```json ... ``` 或直接純 JSON）
+    raw = resp.choices[0].message.content or ""
     parsed = _extract_json(raw)
+    usage = {
+        "input_tokens": resp.usage.prompt_tokens if resp.usage else 0,
+        "output_tokens": resp.usage.completion_tokens if resp.usage else 0,
+    }
+
     if not parsed:
         return {
             "diagnosis": ["（AI 回應解析失敗，回傳原文）"],
             "immediate_actions": [raw[:500]],
             "this_week_plan": [],
-            "_meta": {"source": "claude", "model": MODEL,
-                      "parse_error": True,
-                      "usage": _usage(msg)},
+            "_meta": {"source": "openai", "model": MODEL, "parse_error": True, "usage": usage},
         }
 
-    parsed["_meta"] = {
-        "source": "claude", "model": MODEL,
-        "usage": _usage(msg),
-    }
+    parsed["_meta"] = {"source": "openai", "model": MODEL, "usage": usage}
     return parsed
-
-
-def _usage(msg) -> dict:
-    u = getattr(msg, "usage", None)
-    if not u:
-        return {}
-    return {
-        "input_tokens": getattr(u, "input_tokens", 0),
-        "output_tokens": getattr(u, "output_tokens", 0),
-        "cache_read_input_tokens": getattr(u, "cache_read_input_tokens", 0) or 0,
-        "cache_creation_input_tokens": getattr(u, "cache_creation_input_tokens", 0) or 0,
-    }
 
 
 def _extract_json(text: str) -> dict | None:
     """從可能含 markdown code block 的文字中萃取 JSON"""
     text = text.strip()
-    # 去 markdown code fence
     if text.startswith("```"):
         first_nl = text.find("\n")
         if first_nl > 0:
@@ -222,7 +203,6 @@ def _extract_json(text: str) -> dict | None:
     try:
         return json.loads(text)
     except json.JSONDecodeError:
-        # 找第一個 { 到最後 } 看看
         s, e = text.find("{"), text.rfind("}")
         if s != -1 and e > s:
             try:
@@ -239,10 +219,9 @@ def generate_insights(report_data: dict, customer: dict | None = None) -> dict:
     if not is_configured():
         return _rule_based_insights(report_data)
     try:
-        return _claude_insights(report_data, customer)
+        return _openai_insights(report_data, customer)
     except Exception as e:
-        # API 失敗時回 rule_based 並標註錯誤
         result = _rule_based_insights(report_data)
-        result["_meta"]["claude_error"] = f"{type(e).__name__}: {e}"
+        result["_meta"]["openai_error"] = f"{type(e).__name__}: {e}"
         result["_meta"]["fallback"] = True
         return result
