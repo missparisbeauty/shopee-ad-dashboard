@@ -317,6 +317,39 @@ def aggregate_placements(shop: str | None = None, period: str = "month",
     return out[:limit]
 
 
+def aggregate_weekday_roas(shop: str | None = None, days: int = 60) -> dict[str, Any]:
+    """依星期幾聚合 ROAS。蝦皮廣告 CSV 只有「日」粒度、沒有「幾點」，
+    所以最細只能做到星期，無法做 7×24 分時熱力圖。
+    """
+    since = date.today() - timedelta(days=days)
+    rows = _filter(_load()["rows"], shop, since)
+    buckets = {i: {"spend": 0.0, "revenue": 0.0, "dates": set()} for i in range(7)}
+    for r in rows:
+        d = r.get("date")
+        if not d:
+            continue
+        try:
+            wd = date.fromisoformat(d).weekday()  # 0=週一 ... 6=週日
+        except ValueError:
+            continue
+        b = buckets[wd]
+        b["spend"] += r.get("spend") or 0
+        b["revenue"] += r.get("revenue") or 0
+        b["dates"].add(d)
+    labels = ["週一", "週二", "週三", "週四", "週五", "週六", "週日"]
+    cells = []
+    for i in range(7):
+        b = buckets[i]
+        cells.append({
+            "day": labels[i],
+            "roas": round(b["revenue"] / b["spend"], 2) if b["spend"] else 0.0,
+            "spend": int(round(b["spend"])),
+            "revenue": int(round(b["revenue"])),
+            "days_count": len(b["dates"]),
+        })
+    return {"cells": cells, "window_days": days}
+
+
 def list_shops_with_data() -> list[str]:
     return sorted({r["shop"] for r in _load()["rows"] if r.get("shop")})
 

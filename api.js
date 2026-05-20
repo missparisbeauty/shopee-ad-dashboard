@@ -198,8 +198,7 @@ const api = {
     if (opts.source) q.set('source', opts.source);
     return request('/products/health-scores' + (q.toString() ? '?'+q : ''));
   },
-  // 關鍵字
-  exploreKeywords: (seed)                   => request(`/keywords/explore?seed=${encodeURIComponent(seed)}`),
+  // 關鍵字（探索已改走真實 exploreKeywordTrends → Google Trends）
   getKeywordGroups:()                       => request('/keywords/groups'),
   getSeasonalCalendar:()                    => request('/keywords/seasonal-calendar'),
   // 受眾與素材

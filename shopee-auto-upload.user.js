@@ -31,7 +31,7 @@
 
   // ───────────────────────── 設定（存在 Tampermonkey storage）─────────────────────────
   const CFG = {
-    get dashUrl()  { return GM_getValue('dashUrl', 'https://shopee-dashboard-758403173010.asia-east1.run.app'); },
+    get dashUrl()  { return GM_getValue('dashUrl', 'https://shopee-dashboard-zctlocldga-de.a.run.app'); },
     set dashUrl(v) { GM_setValue('dashUrl', v); },
     get user()     { return GM_getValue('authUser', 'admin'); },
     set user(v)    { GM_setValue('authUser', v); },
