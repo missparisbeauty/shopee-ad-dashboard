@@ -1,7 +1,7 @@
 """
-Email 寄送封裝（SendGrid）
+Email 寄送封裝（Gmail SMTP）
 ─────────────────────────
-責任：把月報資料 render 成 HTML email、用 SendGrid 寄出。
+責任：把月報資料 render 成 HTML email、用 Gmail SMTP 寄出。
      沒設環境變數時自動 fallback 為 mock，不影響開發/Demo。
 
 對外公開函式：
@@ -10,32 +10,34 @@ Email 寄送封裝（SendGrid）
     render_monthly_report_html(report_data) → str
     send_monthly_report(to_email, subject, report_data, attachment_pdf_bytes=None)
         → {"status": "sent"|"mock"|"error", "message_id": str|None, "error": str|None}
+
+環境變數：
+    GMAIL_USER        寄件 Gmail 帳號（例：yourname@gmail.com）
+    GMAIL_APP_PASSWORD  Gmail App 密碼（16 碼，不是登入密碼）
 """
 from __future__ import annotations
 
-import base64
 import os
+import smtplib
+import uuid
+from email.mime.application import MIMEApplication
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from typing import Any
 
-# SendGrid SDK 可能沒裝（mock 模式不需要），import 失敗時視為未設定
-try:
-    from sendgrid import SendGridAPIClient
-    from sendgrid.helpers.mail import Mail, Attachment, FileContent, FileName, FileType, Disposition
-    _HAS_SDK = True
-except ImportError:
-    _HAS_SDK = False
+SMTP_HOST = "smtp.gmail.com"
+SMTP_PORT = 587
 
 
 def is_configured() -> bool:
-    """SDK 已裝且環境變數齊全 → 真實寄送可用"""
-    return _HAS_SDK and bool(os.environ.get("SENDGRID_API_KEY")) and bool(os.environ.get("SENDGRID_FROM_EMAIL"))
+    return bool(os.environ.get("GMAIL_USER")) and bool(os.environ.get("GMAIL_APP_PASSWORD"))
 
 
 def config_status() -> dict:
     return {
-        "sdk_installed": _HAS_SDK,
-        "api_key_set": bool(os.environ.get("SENDGRID_API_KEY")),
-        "from_email": os.environ.get("SENDGRID_FROM_EMAIL") or None,
+        "provider": "gmail_smtp",
+        "gmail_user": os.environ.get("GMAIL_USER") or None,
+        "app_password_set": bool(os.environ.get("GMAIL_APP_PASSWORD")),
         "ready": is_configured(),
         "mode": "real" if is_configured() else "mock",
     }
@@ -61,7 +63,6 @@ def render_monthly_report_html(report: dict) -> str:
     plans = report.get("next_month_plan") or []
     month = report.get("month", "")
 
-    # 真實 vs mock 標記
     src = (report.get("_meta") or {}).get("source", "mock")
     src_badge = (
         '<span style="display:inline-block;padding:3px 10px;background:#16A34A;color:#fff;border-radius:12px;font-size:11px">● 真實 CSV 資料</span>'
@@ -178,41 +179,40 @@ def send_monthly_report(
     report_data: dict,
     attachment_pdf_bytes: bytes | None = None,
 ) -> dict:
-    """寄送月報。沒設定 SendGrid 時 fallback 為 mock。"""
+    """寄送月報。沒設定 Gmail 憑證時 fallback 為 mock。"""
     if not is_configured():
         return {
             "status": "mock",
             "message_id": None,
             "error": None,
-            "note": "SendGrid 未設定，未實際寄送（mock 模式）。要寄真信請設定環境變數 SENDGRID_API_KEY 與 SENDGRID_FROM_EMAIL",
+            "note": "Gmail 未設定，未實際寄送（mock 模式）。請設定環境變數 GMAIL_USER 與 GMAIL_APP_PASSWORD",
         }
 
     html_body = render_monthly_report_html(report_data)
-    from_email = os.environ["SENDGRID_FROM_EMAIL"]
-    api_key = os.environ["SENDGRID_API_KEY"]
+    gmail_user = os.environ["GMAIL_USER"]
+    app_password = os.environ["GMAIL_APP_PASSWORD"]
 
-    msg = Mail(
-        from_email=from_email,
-        to_emails=to_email,
-        subject=subject,
-        html_content=html_body,
-    )
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = gmail_user
+    msg["To"] = to_email
+    msg["Message-ID"] = f"<{uuid.uuid4()}@shopee-dashboard>"
+    msg.attach(MIMEText(html_body, "html", "utf-8"))
+
     if attachment_pdf_bytes:
-        att = Attachment(
-            FileContent(base64.b64encode(attachment_pdf_bytes).decode()),
-            FileName(f"{subject}.pdf"),
-            FileType("application/pdf"),
-            Disposition("attachment"),
-        )
-        msg.attachment = att
+        part = MIMEApplication(attachment_pdf_bytes, Name=f"{subject}.pdf")
+        part["Content-Disposition"] = f'attachment; filename="{subject}.pdf"'
+        msg.attach(part)
 
     try:
-        sg = SendGridAPIClient(api_key)
-        resp = sg.send(msg)
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(gmail_user, app_password)
+            server.sendmail(gmail_user, to_email, msg.as_string())
         return {
             "status": "sent",
-            "message_id": resp.headers.get("X-Message-Id") if hasattr(resp, "headers") else None,
-            "status_code": resp.status_code,
+            "message_id": msg["Message-ID"],
             "error": None,
         }
     except Exception as e:
