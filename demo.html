@@ -1042,6 +1042,34 @@
       </div>
     </div>
 
+    <!-- ✨ 真實關鍵字表現（從關鍵字/版位 CSV 聚合） -->
+    <div class="section">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">✨ 真實關鍵字表現 <span style="font-size:11px;background:#16A34A;color:#fff;padding:2px 8px;border-radius:8px;margin-left:6px">● 真實 CSV</span></div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">從上傳的「關鍵字/版位層級數據」CSV 聚合 · 看哪些關鍵字真的賺錢</div>
+          </div>
+          <button class="btn" onclick="loadKeywordPerformance()" style="flex:0;padding:6px 14px">🔄 重新整理</button>
+        </div>
+        <div id="keyword-performance" style="padding:14px 20px"><div style="color:var(--text-muted)">載入中…</div></div>
+      </div>
+    </div>
+
+    <!-- ✨ 版位表現 -->
+    <div class="section">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">📍 版位表現 <span style="font-size:11px;background:#16A34A;color:#fff;padding:2px 8px;border-radius:8px;margin-left:6px">● 真實 CSV</span></div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">搜尋頁 vs 分類頁 vs 推薦位 — 哪個版位最有效</div>
+          </div>
+          <button class="btn" onclick="loadPlacementPerformance()" style="flex:0;padding:6px 14px">🔄 重新整理</button>
+        </div>
+        <div id="placement-performance" style="padding:14px 20px"><div style="color:var(--text-muted)">載入中…</div></div>
+      </div>
+    </div>
+
     <!-- Google Trends 今日熱搜 -->
     <div class="section">
       <div class="card">
@@ -2439,20 +2467,35 @@ async function handleUpload(file, force = false) {
     const dr = s.date_range ? `${s.date_range[0]} ~ ${s.date_range[1]}` : '—';
     const previewKeys = ['date','product_id','product_name','impressions','clicks','spend','revenue','roas'];
 
-    // Lifetime 警告（多日彙總報表）
-    let lifetimeWarn = '';
-    if (s.is_lifetime_report) {
-      lifetimeWarn = `
-        <div class="info-box" style="background:#FED7AA;color:#9A3412;margin-bottom:8px">
-          ⚠️ <strong>偵測到多日彙總報表（${s.period_days} 天）</strong><br>
-          <span style="font-size:12px">這份是「廣告活動 lifetime 統計」涵蓋 ${s.report_period_start} ~ ${s.report_period_end}（${s.period_days} 天累積）。
-          每筆數字都是 ${s.period_days} 天總和，不是單日。<br>
-          <strong>建議：下次匯出時，期間選「單一天」</strong>（例如今天匯昨天 ~ 昨天），這樣每天的數字才是「當天的」，KPI 趨勢才不會被多日數字覆蓋。
-          系統暫時用「期間結束日」當代表日期。</span>
+    // 報表類型徽章（總體 vs 關鍵字/版位）
+    const reportType = s.report_type || 'overall';
+    const typeBadge = reportType === 'keyword_placement'
+      ? `<span style="background:#A855F7;color:#fff;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600">🔑 關鍵字/版位層級</span>`
+      : `<span style="background:#2563EB;color:#fff;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600">📊 總體廣告數據</span>`;
+
+    // 期間說明（5 種對應的建議）
+    const periodNote = (() => {
+      if (!s.period_days) return null;
+      if (s.period_days === 1) return { color: '#16A34A', icon: '✓', text: '單一天報表 — 最精準（適合做日級趨勢）' };
+      if (s.period_days <= 7) return { color: '#16A34A', icon: '✓', text: `${s.period_days} 天彙總 — 可用，但每筆已是區間總和` };
+      if (s.period_days <= 30) return { color: '#F59E0B', icon: '⚠️', text: `${s.period_days} 天彙總 — 數字膨脹，無法看趨勢` };
+      return { color: '#DC2626', icon: '🚨', text: `${s.period_days} 天彙總（lifetime）— 強烈建議匯出時改成「昨天 ~ 昨天」` };
+    })();
+    let periodWarn = '';
+    if (periodNote) {
+      periodWarn = `
+        <div class="info-box" style="background:${s.period_days <= 7 ? '#DCFCE7' : '#FED7AA'};color:${periodNote.color};margin-bottom:8px">
+          ${periodNote.icon} <strong>期間：${s.report_period_start} ~ ${s.report_period_end}</strong> · ${periodNote.text}
+          ${s.period_days > 7 ? '<br><span style="font-size:11px">蝦皮匯出時選「今天/昨天」（最佳）或「過去一週」（可接受）；「過去一個月」「近三個月」會讓 KPI 趨勢失真</span>' : ''}
         </div>`;
     }
+
     result.innerHTML = `
-      ${lifetimeWarn}
+      <div style="margin-bottom:8px;display:flex;gap:8px;align-items:center">
+        ${typeBadge}
+        <span style="font-size:11px;color:var(--text-muted)">${reportType === 'keyword_placement' ? '會貢獻到「關鍵字研究」頁的真實表現' : '會貢獻到 KPI / 真實獲利 / 商品健康度'}</span>
+      </div>
+      ${periodWarn}
       <div class="info-box" style="background:#DCFCE7;color:#166534">
         ✓ 解析成功 · <strong>${fmt(s.row_count)}</strong> 筆 · 編碼 <code>${r.encoding||'-'}</code>
         · 跳過 ${r.skipped_rows||0} 筆 · ${(r.size_bytes/1024).toFixed(1)} KB
@@ -3332,6 +3375,92 @@ window.onSyncHealthFromShopee = async function() {
   }
 };
 
+/* ────────── ✨ 真實關鍵字 / 版位表現（從關鍵字版位 CSV） ────────── */
+async function loadKeywordPerformance() {
+  const wrap = document.getElementById('keyword-performance');
+  if (!wrap) return;
+  wrap.innerHTML = '<div style="color:var(--text-muted)">⏳ 載入中…</div>';
+  try {
+    const shop = (typeof _getCurrentShop === 'function') ? _getCurrentShop() : null;
+    const r = await api.getKeywordsPerformance(shop ? { shop, period: 'month' } : { period: 'month' });
+    if (!r.items.length) {
+      wrap.innerHTML = `<div style="color:#92400E;background:#FEF3C7;padding:12px;border-radius:6px;font-size:13px">
+        ⓘ ${r._meta?.note || '尚未上傳關鍵字/版位 CSV'}<br>
+        <span style="font-size:11px;color:var(--text-muted)">蝦皮匯出時：商品廣告 → 匯出數據 → 選「關鍵字/版位層級數據」</span>
+      </div>`;
+      return;
+    }
+    wrap.innerHTML = `
+      <table style="font-size:12px">
+        <thead><tr>
+          <th>關鍵字</th>
+          <th class="num">曝光</th>
+          <th class="num">點擊</th>
+          <th class="num">花費</th>
+          <th class="num">營收</th>
+          <th class="num">ROAS</th>
+          <th class="num">CTR</th>
+          <th class="num">CPC</th>
+        </tr></thead>
+        <tbody>${r.items.slice(0, 30).map(k => `
+          <tr>
+            <td><strong>${k.keyword}</strong></td>
+            <td class="num">${(k.impressions||0).toLocaleString()}</td>
+            <td class="num">${(k.clicks||0).toLocaleString()}</td>
+            <td class="num">$${(k.spend||0).toLocaleString()}</td>
+            <td class="num">$${(k.revenue||0).toLocaleString()}</td>
+            <td class="num"><strong style="color:${k.roas>=3?'#16A34A':k.roas>=1?'#D97706':'#DC2626'}">${k.roas}</strong></td>
+            <td class="num">${k.ctr}%</td>
+            <td class="num">$${k.cpc}</td>
+          </tr>
+        `).join('')}</tbody>
+      </table>`;
+  } catch (e) {
+    wrap.innerHTML = `<div class="info-box" style="background:#FEE2E2;color:#991B1B">✗ ${e.message}</div>`;
+  }
+}
+
+async function loadPlacementPerformance() {
+  const wrap = document.getElementById('placement-performance');
+  if (!wrap) return;
+  wrap.innerHTML = '<div style="color:var(--text-muted)">⏳ 載入中…</div>';
+  try {
+    const shop = (typeof _getCurrentShop === 'function') ? _getCurrentShop() : null;
+    const r = await api.getPlacementsPerformance(shop ? { shop, period: 'month' } : { period: 'month' });
+    if (!r.items.length) {
+      wrap.innerHTML = `<div style="color:#92400E;background:#FEF3C7;padding:12px;border-radius:6px;font-size:13px">
+        ⓘ ${r._meta?.note || '尚未上傳關鍵字/版位 CSV'}
+      </div>`;
+      return;
+    }
+    wrap.innerHTML = `
+      <table style="font-size:12px">
+        <thead><tr>
+          <th>版位</th>
+          <th class="num">曝光</th>
+          <th class="num">點擊</th>
+          <th class="num">花費</th>
+          <th class="num">營收</th>
+          <th class="num">ROAS</th>
+          <th class="num">CTR</th>
+        </tr></thead>
+        <tbody>${r.items.map(p => `
+          <tr>
+            <td><strong>${p.placement}</strong></td>
+            <td class="num">${(p.impressions||0).toLocaleString()}</td>
+            <td class="num">${(p.clicks||0).toLocaleString()}</td>
+            <td class="num">$${(p.spend||0).toLocaleString()}</td>
+            <td class="num">$${(p.revenue||0).toLocaleString()}</td>
+            <td class="num"><strong style="color:${p.roas>=3?'#16A34A':p.roas>=1?'#D97706':'#DC2626'}">${p.roas}</strong></td>
+            <td class="num">${p.ctr}%</td>
+          </tr>
+        `).join('')}</tbody>
+      </table>`;
+  } catch (e) {
+    wrap.innerHTML = `<div class="info-box" style="background:#FEE2E2;color:#991B1B">✗ ${e.message}</div>`;
+  }
+}
+
 /* ────────── Google Trends 今日熱搜 ────────── */
 async function loadTrendsDaily() {
   const wrap = document.getElementById('trends-daily');
@@ -3838,6 +3967,7 @@ Promise.all([
   loadWatcher(), loadEmailStatus(), loadShopeeStatus(),
   loadRules(),
   loadKwGroups(), loadSeasonal(), loadTrendsDaily(),
+  loadKeywordPerformance(), loadPlacementPerformance(),
   loadAudiences(), loadCustomers(), loadReportLog(),
   loadTeam(), loadNotifyConfig(),
   loadMultiPlatform(),

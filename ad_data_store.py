@@ -249,6 +249,74 @@ def aggregate_daily_trend(shop: str | None = None, days: int = 7) -> list[dict]:
     return points
 
 
+def aggregate_keywords(shop: str | None = None, period: str = "month",
+                       limit: int = 100) -> list[dict]:
+    """以「關鍵字」分組聚合（需 keyword/版位 CSV 才有資料）。
+    回傳排序好的關鍵字表現清單。
+    """
+    rows = _filter(_load()["rows"], shop, _period_to_since(period))
+    bucket: dict[str, dict] = {}
+    for r in rows:
+        kw = r.get("keyword")
+        if not kw or kw in ("-", "—", "N/A", "n/a", "null"):
+            continue
+        b = bucket.setdefault(kw, {
+            "keyword": kw,
+            "spend": 0.0, "revenue": 0.0,
+            "clicks": 0, "impressions": 0, "orders": 0,
+        })
+        b["spend"] += r.get("spend") or 0
+        b["revenue"] += r.get("revenue") or 0
+        b["clicks"] += r.get("clicks") or 0
+        b["impressions"] += r.get("impressions") or 0
+        b["orders"] += r.get("orders") or 0
+
+    out = []
+    for b in bucket.values():
+        b["roas"] = round(b["revenue"] / b["spend"], 2) if b["spend"] else 0
+        b["ctr"] = round(b["clicks"] / b["impressions"] * 100, 2) if b["impressions"] else 0
+        b["cpc"] = round(b["spend"] / b["clicks"], 2) if b["clicks"] else 0
+        b["acos"] = round(b["spend"] / b["revenue"] * 100, 1) if b["revenue"] else 0
+        b["spend"] = round(b["spend"], 2)
+        b["revenue"] = round(b["revenue"], 2)
+        out.append(b)
+    out.sort(key=lambda x: x["revenue"], reverse=True)
+    return out[:limit]
+
+
+def aggregate_placements(shop: str | None = None, period: str = "month",
+                          limit: int = 100) -> list[dict]:
+    """以「版位」分組聚合（需關鍵字/版位 CSV 才有資料）。"""
+    rows = _filter(_load()["rows"], shop, _period_to_since(period))
+    bucket: dict[str, dict] = {}
+    for r in rows:
+        pl = r.get("placement")
+        if not pl or pl in ("-", "—", "N/A", "n/a", "null"):
+            continue
+        b = bucket.setdefault(pl, {
+            "placement": pl,
+            "spend": 0.0, "revenue": 0.0,
+            "clicks": 0, "impressions": 0, "orders": 0,
+        })
+        b["spend"] += r.get("spend") or 0
+        b["revenue"] += r.get("revenue") or 0
+        b["clicks"] += r.get("clicks") or 0
+        b["impressions"] += r.get("impressions") or 0
+        b["orders"] += r.get("orders") or 0
+
+    out = []
+    for b in bucket.values():
+        b["roas"] = round(b["revenue"] / b["spend"], 2) if b["spend"] else 0
+        b["ctr"] = round(b["clicks"] / b["impressions"] * 100, 2) if b["impressions"] else 0
+        b["cpc"] = round(b["spend"] / b["clicks"], 2) if b["clicks"] else 0
+        b["acos"] = round(b["spend"] / b["revenue"] * 100, 1) if b["revenue"] else 0
+        b["spend"] = round(b["spend"], 2)
+        b["revenue"] = round(b["revenue"], 2)
+        out.append(b)
+    out.sort(key=lambda x: x["revenue"], reverse=True)
+    return out[:limit]
+
+
 def list_shops_with_data() -> list[str]:
     return sorted({r["shop"] for r in _load()["rows"] if r.get("shop")})
 

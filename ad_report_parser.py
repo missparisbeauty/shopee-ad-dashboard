@@ -92,6 +92,17 @@ COLUMN_ALIASES: dict[str, list[str]] = {
         "廣告銷售比例",
         "成本收入比率", "直接成本收入比率",  # 蝦皮 CPC 報表用「成本收入比率」
     ],
+    # 蝦皮「關鍵字/版位層級數據」CSV 專用欄位
+    "keyword": [
+        "關鍵字", "keyword", "搜尋關鍵字", "搜尋字", "search keyword",
+        "查詢字", "search query", "query", "term", "search term",
+        "match keyword", "matched keyword",
+    ],
+    "placement": [
+        "版位", "placement", "版位類型", "ad placement",
+        "曝光版位", "廣告版位", "投放版位",
+        # 蝦皮常見版位名稱（可能整列就是版位名，但別名比對是欄位名）
+    ],
 }
 
 # 反向索引：別名（normalize 後）→ 標準名
@@ -270,7 +281,7 @@ def parse_csv(raw: bytes) -> ParseResult:
                 parsed = parse_date(val)
                 if parsed:
                     record["date"] = parsed
-            elif std in ("product_id", "product_name", "campaign_name"):
+            elif std in ("product_id", "product_name", "campaign_name", "keyword", "placement"):
                 v = str(val).strip()
                 if v:
                     record[std] = v
@@ -293,8 +304,10 @@ def parse_csv(raw: bytes) -> ParseResult:
                 elif std not in record:
                     record[std] = v
 
-        # 必要欄位檢查：至少要有 product_id 或 product_name 之一，且至少一個數值欄位
-        if not record.get("product_id") and not record.get("product_name") and not record.get("campaign_name"):
+        # 必要欄位檢查：至少要有「身份識別欄位」之一（product_id / product_name / campaign_name / keyword / placement）
+        # 關鍵字/版位 CSV 沒 product_id，但有 keyword 或 placement
+        if not any(record.get(k) for k in
+                   ("product_id", "product_name", "campaign_name", "keyword", "placement")):
             skipped += 1
             continue
         if not any(record.get(k) is not None for k in ("impressions", "clicks", "spend", "revenue", "orders")):
@@ -321,6 +334,8 @@ def parse_csv(raw: bytes) -> ParseResult:
     summary["period_days"] = metadata.get("period_days")
     summary["is_lifetime_report"] = metadata.get("is_lifetime_report", False)
     summary["shop_name_in_csv"] = metadata.get("shop_name")
+    # 偵測報表類型：總體（overall）vs 關鍵字/版位（keyword_placement）
+    summary["report_type"] = detect_report_type(column_map, parsed_rows)
     return ParseResult(
         rows=parsed_rows,
         column_map=column_map,
@@ -406,6 +421,23 @@ def _find_header_row(rows: list[list[str]], max_scan: int = 20) -> tuple[int, in
         if score >= 3:
             return idx, score
     return best_idx, best_score
+
+
+def detect_report_type(column_map: dict[str, str], rows: list[dict[str, Any]]) -> str:
+    """偵測報表類型 — 看欄位映射有沒有 keyword/placement。
+    回傳：
+      - "keyword_placement"：CSV 含「關鍵字」或「版位」欄位 → 用於關鍵字/版位層級分析
+      - "overall"：純廣告活動級總體報表（預設）
+    """
+    mapped_stds = set(column_map.values())
+    has_keyword = "keyword" in mapped_stds
+    has_placement = "placement" in mapped_stds
+    if has_keyword or has_placement:
+        # 雙重檢查：實際解析後的 rows 至少有一筆有 keyword/placement 值
+        for r in rows:
+            if r.get("keyword") or r.get("placement"):
+                return "keyword_placement"
+    return "overall"
 
 
 def _enrich_derived(rec: dict[str, Any]) -> None:

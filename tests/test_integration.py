@@ -129,6 +129,8 @@ class TestSimpleEndpoints:
         "/api/v1/external/status",
         "/api/v1/watcher/status",
         "/api/v1/ad-data/products?period=month",
+        "/api/v1/keywords/performance?period=month",
+        "/api/v1/placements/performance?period=month",
     ])
     def test_endpoint_returns_200(self, isolated_server, path):
         r = isolated_server.get(path)

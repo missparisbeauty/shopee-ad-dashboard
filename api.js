@@ -137,6 +137,21 @@ const api = {
     if (opts.limit)  q.set('limit',  opts.limit);
     return request(`/ad-data/products${q.toString() ? '?' + q : ''}`);
   },
+  // 關鍵字 / 版位真實表現（從關鍵字/版位 CSV 聚合）
+  getKeywordsPerformance: (opts={}) => {
+    const q = new URLSearchParams();
+    if (opts.shop)   q.set('shop',   opts.shop);
+    if (opts.period) q.set('period', opts.period);
+    if (opts.limit)  q.set('limit',  opts.limit);
+    return request(`/keywords/performance${q.toString() ? '?' + q : ''}`);
+  },
+  getPlacementsPerformance: (opts={}) => {
+    const q = new URLSearchParams();
+    if (opts.shop)   q.set('shop',   opts.shop);
+    if (opts.period) q.set('period', opts.period);
+    if (opts.limit)  q.set('limit',  opts.limit);
+    return request(`/placements/performance${q.toString() ? '?' + q : ''}`);
+  },
   // 競品
   listCompetitors: ()                       => request('/competitors/list'),
   addCompetitor:   (body)                   => request('/competitors/list', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }),
