@@ -25,7 +25,7 @@ except ImportError:
     _HAS_SDK = False
 
 # 可在環境變數覆寫
-MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-5")
+MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 MAX_TOKENS = 1024
 
 
