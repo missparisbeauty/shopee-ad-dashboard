@@ -66,7 +66,7 @@ jobs:
             --min-instances=1 --max-instances=1 \
             --timeout=300 --concurrency=10 \
             --set-env-vars="DATA_DIR=/data,BASIC_AUTH_USER=admin" \
-            --set-secrets="BASIC_AUTH_PASS=shopee-dashboard-auth-pass:latest,CRON_TOKEN=cron-token:latest" \
+            --set-secrets="BASIC_AUTH_PASS=shopee-dashboard-auth-pass:latest,CRON_TOKEN=cron-token:latest,OPENAI_API_KEY=OPENAI_API_KEY_FBTOOL:latest" \
             --add-volume="name=data-volume,type=cloud-storage,bucket=${{ env.BUCKET }}" \
             --add-volume-mount="volume=data-volume,mount-path=/data" \
             --execution-environment=gen2
