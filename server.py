@@ -142,6 +142,13 @@ def get_trend(
     return ok({"points": points, "_meta": {"source": "mock"}})
 
 
+@app.get("/api/v1/reports/aggregate-summary")
+def get_aggregate_summary(shop: str | None = None):
+    """多日彙總（過去一週/一個月/近三個月）報表清單 — 給「區間總覽」用。
+    這些報表不拆日、不進日期型 KPI，各自顯示其期間總計。"""
+    return ok({"items": ad_data_store.list_aggregate_reports(shop)})
+
+
 # ─────────────────────────── 帳號總表 ───────────────────────────
 
 @app.get("/api/v1/accounts")
