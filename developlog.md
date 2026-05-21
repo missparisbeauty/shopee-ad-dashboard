@@ -73,9 +73,27 @@
 
 ---
 
+## 2026-05-21：報表分倉系統 + 新增客戶 bug 修正
+
+### J. 修正「新增店家／客戶」無效（commit `cc26ddf`）
+- 根因：`CustomerReq` model 缺 `shop_ids` 欄位 → Pydantic 丟棄前端傳值；`add_customer` 又硬寫 `shop_ids=[]`
+- 結果新客戶 `shop_ids` 永遠為空，而上傳區「店家／客戶」下拉是由 shop_ids 建立 → 抓不到新客戶 → 看似「新增無效」
+- 修法：補 `shop_ids` 欄位 + 移除硬寫空值
+
+### K. 報表分倉系統（commit `6427df1` / `d456979` / `a24480f`）
+蝦皮廣告 CSV 有兩個維度：**報表類型**（總體 / 關鍵字版位）×**匯出粒度**（單日 / 多日彙總）。原本所有 row 倒進同一聚合池，造成：①關鍵字／版位報表會被重複計入 KPI；②多日彙總（90 天等）日期是假的，被當單日污染日／週 KPI 與趨勢。
+
+- **Phase 1 — 資料層分流**：每筆 row 與 upload 標記 `report_type` × `granularity`。主儀表板聚合（KPI／商品／趨勢／獲利／預算／星期 ROAS）只吃 `overall`+`daily`；關鍵字頁只吃 `keyword_placement`。新增 `list_aggregate_reports()`、`migrate_store()`（server 啟動回填舊資料標記，正式環境舊資料靠這個）。
+- **Phase 2 — UI 標示**：上傳區加「單日／N 日彙總」粒度徽章；KPI 頁顯示資料來源；店家只有多日彙總時改顯示提示導向區間總覽，不再顯示誤導性的 $0。
+- **Phase 3 — 區間總覽**：新增 `GET /api/v1/reports/aggregate-summary`；KPI 頁下方新增「區間總覽」卡片，多日彙總報表各自顯示期間總計（不拆日）。
+
+部署後實測：正式環境真實資料本來就有 3 份多日彙總報表，過去一直灌水 KPI；分倉上線後已分流到區間總覽，KPI 數字回歸真實。
+
+---
+
 ## 測試與品質
 
-- pytest 共 **134 個**全綠（單元 + 整合 + edge case + auth/healthz；2026-05-20 新增 11 個 report type 偵測與新 endpoint 測試）
+- pytest 共 **143 個**全綠（單元 + 整合 + edge case + auth/healthz；2026-05-20 +11 report type 偵測；2026-05-21 +9 報表分倉相關測試）
 - 每次 push GitHub Actions 自動驗證
 - Public repo 已驗證無敏感資料洩漏（客戶資料 / 密碼 / 金鑰 / HANDOFF 皆由 .gitignore 擋下）
 
