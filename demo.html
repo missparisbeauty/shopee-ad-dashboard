@@ -1808,10 +1808,25 @@ async function loadKpi(period = 'week') {
   try {
     const shop = _getCurrentShop();
     const k = await api.getKpi(period, shop ? { shop } : {});
-    const isReal = k._meta?.source === 'real';
-    const badge = isReal
-      ? `<span style="display:inline-block;padding:3px 8px;background:#16A34A;color:#fff;border-radius:10px;font-size:11px;font-weight:600">● 真實 CSV 資料（${k._meta.row_count} 筆）</span>`
-      : `<span style="display:inline-block;padding:3px 8px;background:#94A3B8;color:#fff;border-radius:10px;font-size:11px;font-weight:600">○ Demo 範例資料</span>`;
+    const m = k._meta || {};
+    const isReal = m.source === 'real';
+    const dailyRows = m.row_count || 0;
+    const aggReports = m.aggregate_reports || 0;
+
+    // 只有多日彙總、無單日資料 → 不顯示誤導性的 $0，改顯示提示導向區間總覽
+    if (isReal && dailyRows === 0 && aggReports > 0) {
+      document.getElementById('kpi-cards').innerHTML = `
+        <div class="info-box" style="grid-column:1/-1;background:#FED7AA;color:#9A3412">
+          ⚠️ 此店家目前只有 <strong>${aggReports}</strong> 份「多日彙總」報表，無法計算單日 / 期間 KPI。
+          <br><span style="font-size:12px">請改看下方「區間總覽」，或在蝦皮匯出「昨天」的單日報表再上傳。</span>
+        </div>`;
+      return;
+    }
+
+    const sourceText = isReal
+      ? `● 真實 CSV 資料 · 總體單日 ${dailyRows} 筆` + (aggReports ? ` · 另有 ${aggReports} 份多日彙總（見區間總覽）` : '')
+      : '○ Demo 範例資料';
+    const badge = `<span style="display:inline-block;padding:3px 8px;background:${isReal?'#16A34A':'#94A3B8'};color:#fff;border-radius:10px;font-size:11px;font-weight:600">${sourceText}</span>`;
     document.getElementById('kpi-cards').innerHTML = `
       <div style="grid-column:1/-1;margin-bottom:-4px">${badge}</div>
       <div class="kpi"><div class="kpi-label">總花費</div>
@@ -2479,6 +2494,11 @@ async function handleUpload(file, force = false) {
       ? `<span style="background:#A855F7;color:#fff;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600">🔑 關鍵字/版位層級</span>`
       : `<span style="background:#2563EB;color:#fff;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600">📊 總體廣告數據</span>`;
 
+    // 粒度徽章（單日 vs 多日彙總）— 多日彙總不會進日期型 KPI，只進區間總覽
+    const granBadge = s.is_lifetime_report
+      ? `<span style="background:#F59E0B;color:#fff;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600">📅 ${s.period_days || '多'} 日彙總</span>`
+      : `<span style="background:#16A34A;color:#fff;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600">📅 單日資料</span>`;
+
     // 期間說明（5 種對應的建議）
     const periodNote = (() => {
       if (!s.period_days) return null;
@@ -2497,9 +2517,13 @@ async function handleUpload(file, force = false) {
     }
 
     result.innerHTML = `
-      <div style="margin-bottom:8px;display:flex;gap:8px;align-items:center">
+      <div style="margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         ${typeBadge}
-        <span style="font-size:11px;color:var(--text-muted)">${reportType === 'keyword_placement' ? '會貢獻到「關鍵字研究」頁的真實表現' : '會貢獻到 KPI / 真實獲利 / 商品健康度'}</span>
+        ${granBadge}
+        <span style="font-size:11px;color:var(--text-muted)">${
+          reportType === 'keyword_placement' ? '會貢獻到「關鍵字研究」頁的真實表現'
+          : s.is_lifetime_report ? '多日彙總 → 只進「區間總覽」，不影響單日 KPI'
+          : '會貢獻到 KPI / 真實獲利 / 商品健康度'}</span>
       </div>
       ${periodWarn}
       <div class="info-box" style="background:#DCFCE7;color:#166534">

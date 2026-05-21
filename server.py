@@ -108,7 +108,10 @@ def get_kpi(
     }
     use_real = source == "real" or (source == "auto" and ad_data_store.has_real_data())
     if use_real and ad_data_store.has_real_data():
-        return ok(ad_data_store.aggregate_kpi(shop=shop, period=period))
+        kpi = ad_data_store.aggregate_kpi(shop=shop, period=period)
+        # 讓前端知道：此店家有幾份「多日彙總」報表（KPI 不含這些，走區間總覽）
+        kpi["_meta"]["aggregate_reports"] = len(ad_data_store.list_aggregate_reports(shop))
+        return ok(kpi)
     return ok(presets[period])
 
 
