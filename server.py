@@ -1897,13 +1897,14 @@ class CustomerReq(BaseModel):
     target_acos: float = 30
     contract_start: str = ""
     contract_end: str = ""
+    shop_ids: list[str] = []
 
 
 @app.post("/api/v1/customers")
 def add_customer(req: CustomerReq):
     items = _load_customers()
     item = {"id": f"CU{int(time.time()*1000)%10000}", **req.model_dump(),
-            "shop_ids": [], "settle_day": 25, "status": "active"}
+            "settle_day": 25, "status": "active"}
     items.append(item)
     _save_customers(items)
     return ok(item)
