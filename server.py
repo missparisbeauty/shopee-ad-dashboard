@@ -67,7 +67,8 @@ def healthz():
 
 @app.on_event("startup")
 async def _on_startup() -> None:
-    """伺服器啟動時，自動開啟 CSV 資料夾監看（可在 UI 或 API 停用）"""
+    """伺服器啟動時：回填舊資料分倉標記 + 開啟 CSV 資料夾監看。"""
+    ad_data_store.migrate_store()
     csv_watcher.start(scan_interval=5)
 
 
