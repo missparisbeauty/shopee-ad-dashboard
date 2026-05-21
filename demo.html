@@ -674,6 +674,17 @@
       <div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--text-muted)">載入中…</div>
     </div>
 
+    <!-- 區間總覽：多日彙總報表（不拆日，各自顯示期間總計）-->
+    <div class="card section" id="aggregate-summary-card" style="display:none">
+      <div class="card-head">
+        <div>
+          <div class="card-title">📆 區間總覽 <span style="font-size:11px;background:#F59E0B;color:#fff;padding:2px 8px;border-radius:8px;margin-left:6px">多日彙總</span></div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:4px">蝦皮匯出「過去一週／一個月／近三個月」是整段彙總、不拆日，不進上方單日 KPI；在這裡看各區間的總計</div>
+        </div>
+      </div>
+      <div id="aggregate-summary-list" style="padding:8px 20px 20px"></div>
+    </div>
+
     <div style="margin:24px 0 12px;font-size:13px;font-weight:600;color:var(--text-secondary)">
       💰 真實獲利分析（扣完成本、運費、平台抽成、刷卡費後）
     </div>
@@ -1783,6 +1794,7 @@ window.onCustomerChange = async function(cid) {
   await Promise.all([
     loadKpi(_currentPeriod),
     loadTrend(),
+    loadAggregateSummary(),
     loadProfitCards(_currentPeriod),
     loadHealth(),
     loadBudgetPacing(),
@@ -1874,6 +1886,41 @@ async function loadTrend() {
     });
   } catch (e) {
     console.error('trend', e);
+  }
+}
+
+async function loadAggregateSummary() {
+  const card = document.getElementById('aggregate-summary-card');
+  if (!card) return;
+  try {
+    const shop = _getCurrentShop();
+    const r = await api.getAggregateSummary(shop ? { shop } : {});
+    const items = r.items || [];
+    if (!items.length) { card.style.display = 'none'; return; }
+    const num = (n) => (n == null ? '—' : Number(n).toLocaleString());
+    card.style.display = '';
+    document.getElementById('aggregate-summary-list').innerHTML = items.map(it => {
+      const period = (it.period_start && it.period_end)
+        ? `${it.period_start} ~ ${it.period_end}` : '期間未標示';
+      const typeLabel = it.report_type === 'keyword_placement' ? '🔑 關鍵字/版位' : '📊 總體';
+      return `
+        <div style="border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+            <strong>${escHtml(period)}</strong>
+            <span style="font-size:11px;color:var(--text-muted)">${typeLabel} · ${it.period_days || '?'} 天 · ${escHtml(it.filename || '')}</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:8px;margin-top:8px">
+            <div class="stat-cell"><div class="stat-label">總花費</div><div class="stat-value">$${num(it.spend)}</div></div>
+            <div class="stat-cell"><div class="stat-label">總營收</div><div class="stat-value">$${num(it.revenue)}</div></div>
+            <div class="stat-cell"><div class="stat-label">ROAS</div><div class="stat-value">${it.roas != null ? Number(it.roas).toFixed(2) : '—'}</div></div>
+            <div class="stat-cell"><div class="stat-label">商品數</div><div class="stat-value">${num(it.products)}</div></div>
+            <div class="stat-cell"><div class="stat-label">訂單數</div><div class="stat-value">${num(it.orders)}</div></div>
+          </div>
+        </div>`;
+    }).join('');
+  } catch (e) {
+    console.error('loadAggregateSummary', e);
+    card.style.display = 'none';
   }
 }
 
@@ -4000,7 +4047,7 @@ async function loadMultiPlatform() {
 Promise.all([
   // 客戶切換器要先載完，才能讓 KPI / Trend / Profit / Health / Budget 讀對的 shop filter
   loadCustomerSwitcher().then(() => Promise.all([
-    loadKpi(), loadTrend(), loadProfitCards(),
+    loadKpi(), loadTrend(), loadAggregateSummary(), loadProfitCards(),
     loadHealth(), loadBudgetPacing(),
   ])),
   loadAiBadge(),
