@@ -154,3 +154,97 @@ class TestLifetimeFallback:
         sales = store.aggregate_product_sales(days=30)
         assert "P1" in sales  # date=None 也要包含
         assert "P2" in sales
+
+
+class TestReportBucketing:
+    """報表分倉：report_type（總體/關鍵字版位）× granularity（單日/多日彙總）"""
+
+    def test_save_upload_tags_overall_daily(self, store):
+        rows = [{"date": _today_iso(-1), "product_id": "P1", "spend": 100, "revenue": 500}]
+        meta = store.save_upload("UP-1", "S001", "a.csv", _make_result(
+            rows, summary={"row_count": 1, "report_type": "overall",
+                           "is_lifetime_report": False}))
+        assert meta["report_type"] == "overall"
+        assert meta["granularity"] == "daily"
+        stored = store._load()["rows"]
+        assert stored[0]["report_type"] == "overall"
+        assert stored[0]["granularity"] == "daily"
+
+    def test_save_upload_aggregate_granularity(self, store):
+        """is_lifetime_report=True → granularity=aggregate"""
+        rows = [{"date": _today_iso(-1), "product_id": "P1", "spend": 100, "revenue": 500}]
+        meta = store.save_upload("UP-1", "S001", "a.csv", _make_result(
+            rows, summary={"row_count": 1, "is_lifetime_report": True, "period_days": 90}))
+        assert meta["granularity"] == "aggregate"
+
+    def test_kpi_excludes_aggregate_granularity(self, store):
+        """90 天彙總報表不應污染日期型 KPI"""
+        daily = [{"date": _today_iso(-1), "product_id": "P1", "spend": 100, "revenue": 500,
+                  "clicks": 10, "impressions": 1000, "orders": 2}]
+        lump = [{"date": _today_iso(-1), "product_id": "P9", "spend": 9999, "revenue": 9999,
+                 "clicks": 999, "impressions": 9999, "orders": 99}]
+        store.save_upload("UP-D", "S001", "daily.csv", _make_result(daily))
+        store.save_upload("UP-L", "S001", "lump.csv", _make_result(
+            lump, summary={"row_count": 1, "is_lifetime_report": True}))
+        kpi = store.aggregate_kpi(period="week")
+        assert kpi["spend"] == 100      # 只算單日，不含多日彙總
+        assert kpi["revenue"] == 500
+
+    def test_kpi_excludes_keyword_rows(self, store):
+        """關鍵字/版位 row 是總體的拆解，不應重複計入 KPI"""
+        overall = [{"date": _today_iso(-1), "product_id": "P1", "spend": 100, "revenue": 500,
+                    "clicks": 10, "impressions": 1000, "orders": 2}]
+        kw = [{"date": _today_iso(-1), "keyword": "充電器", "spend": 50, "revenue": 200,
+               "clicks": 5, "impressions": 500, "orders": 1}]
+        store.save_upload("UP-O", "S001", "o.csv", _make_result(overall))
+        store.save_upload("UP-K", "S001", "k.csv", _make_result(
+            kw, summary={"row_count": 1, "report_type": "keyword_placement"}))
+        kpi = store.aggregate_kpi(period="week")
+        assert kpi["spend"] == 100      # 不含關鍵字 row
+
+    def test_keywords_only_keyword_rows(self, store):
+        """aggregate_keywords 只吃 keyword_placement 報表"""
+        overall = [{"date": _today_iso(-1), "product_id": "P1", "spend": 100, "revenue": 500,
+                    "clicks": 10, "impressions": 1000, "orders": 2}]
+        kw = [{"date": _today_iso(-1), "keyword": "充電器", "spend": 50, "revenue": 200,
+               "clicks": 5, "impressions": 500, "orders": 1}]
+        store.save_upload("UP-O", "S001", "o.csv", _make_result(overall))
+        store.save_upload("UP-K", "S001", "k.csv", _make_result(
+            kw, summary={"row_count": 1, "report_type": "keyword_placement"}))
+        kws = store.aggregate_keywords(period="month")
+        assert len(kws) == 1
+        assert kws[0]["keyword"] == "充電器"
+
+    def test_list_aggregate_reports(self, store):
+        """list_aggregate_reports 只回多日彙總上傳"""
+        daily = [{"date": _today_iso(-1), "product_id": "P1", "spend": 100, "revenue": 500}]
+        lump = [{"date": _today_iso(-1), "product_id": "P9", "spend": 30000, "revenue": 150000}]
+        store.save_upload("UP-D", "S001", "daily.csv", _make_result(daily))
+        store.save_upload("UP-L", "S001", "lump.csv", _make_result(
+            lump, summary={"row_count": 1, "is_lifetime_report": True, "period_days": 90,
+                           "total_spend": 30000, "total_revenue": 150000, "roas": 5.0,
+                           "report_period_start": "2026-02-21",
+                           "report_period_end": "2026-05-21"}))
+        aggs = store.list_aggregate_reports()
+        assert len(aggs) == 1
+        assert aggs[0]["upload_id"] == "UP-L"
+        assert aggs[0]["period_days"] == 90
+        assert aggs[0]["spend"] == 30000
+
+    def test_migrate_backfills_missing_tags(self, store):
+        """舊 store 的 row 缺標記 → migrate_store 由 upload summary 回填"""
+        old = {
+            "uploads": [{"id": "UP-OLD", "shop": "S001", "filename": "old.csv",
+                         "uploaded_at": "2026-05-01T00:00:00+00:00",
+                         "summary": {"row_count": 1, "is_lifetime_report": True}}],
+            "rows": [{"upload_id": "UP-OLD", "shop": "S001", "date": "2026-05-01",
+                      "product_id": "P1", "spend": 100, "revenue": 500}],
+        }
+        store.STORE_FILE.write_text(json.dumps(old), encoding="utf-8")
+        assert store.migrate_store() is True
+        s = store._load()
+        assert s["rows"][0]["report_type"] == "overall"
+        assert s["rows"][0]["granularity"] == "aggregate"
+        assert s["uploads"][0]["granularity"] == "aggregate"
+        # 已回填 → 再跑無變更
+        assert store.migrate_store() is False
