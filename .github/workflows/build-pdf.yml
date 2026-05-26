@@ -28,6 +28,8 @@ jobs:
             texlive-latex-extra \
             texlive-fonts-recommended \
             texlive-fonts-extra \
+            texlive-lang-chinese \
+            texlive-lang-cjk \
             lmodern \
             fonts-noto-cjk \
             fonts-noto-cjk-extra
