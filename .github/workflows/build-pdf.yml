@@ -1,0 +1,70 @@
+name: Build PDF Manual
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "使用說明書.md"
+      - "docs/screenshots/**"
+      - ".github/workflows/build-pdf.yml"
+  workflow_dispatch:  # 也能手動觸發
+
+permissions:
+  contents: write   # 寫 GitHub Release 用
+
+jobs:
+  build-pdf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pandoc + xelatex + 中文字型（Noto CJK）
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pandoc \
+            texlive-xetex \
+            texlive-latex-recommended \
+            texlive-fonts-recommended \
+            fonts-noto-cjk \
+            fonts-noto-cjk-extra
+
+      - name: Build PDF
+        run: |
+          pandoc 使用說明書.md \
+            -o 蝦皮代操儀表板_使用說明書.pdf \
+            --pdf-engine=xelatex \
+            -V CJKmainfont="Noto Sans CJK TC" \
+            -V CJKsansfont="Noto Sans CJK TC" \
+            -V CJKmonofont="Noto Sans Mono CJK TC" \
+            -V geometry:margin=2cm \
+            -V documentclass=article \
+            --toc \
+            --toc-depth=2 \
+            --highlight-style=tango \
+            -V colorlinks=true \
+            -V linkcolor=blue \
+            -V urlcolor=blue
+
+      - name: Upload artifact（每次 build 都保留）
+        uses: actions/upload-artifact@v4
+        with:
+          name: user-manual-pdf
+          path: 蝦皮代操儀表板_使用說明書.pdf
+          retention-days: 90
+
+      - name: Update "pdf-latest" release（永遠指向最新版）
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: pdf-latest
+          name: 使用說明書 PDF（最新版自動更新）
+          body: |
+            主分支 `使用說明書.md` 更新時自動 build。
+
+            **下載**：見下方 Assets 區。
+
+            最後更新：${{ github.event.head_commit.timestamp }}
+            觸發 commit：${{ github.sha }}
+          files: 蝦皮代操儀表板_使用說明書.pdf
+          make_latest: false
+          # 用同一 tag「pdf-latest」覆蓋，不污染 release 列表
