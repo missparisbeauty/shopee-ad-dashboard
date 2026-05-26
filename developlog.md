@@ -44,9 +44,56 @@
 
 ---
 
+## 2026-05-20：AI／寄信供應商切換 + 關鍵字／版位 CSV
+
+> 本段為事後補記，依 commit `8beadc6`～`f35995f`（共 8 個，皆 2026-05-20，皆已自動部署上線）。
+
+### F. AI 顧問改用 OpenAI gpt-4o（取代 Anthropic）
+- `ai_advisor.py`：Anthropic SDK → OpenAI SDK，模型改用 gpt-4o
+- `requirements.txt`：移除 `anthropic`，改加 `openai==1.82.0`
+- `deploy.yml` 把 `OPENAI_API_KEY` secret 接進部署流程（commit `7aec2cc`）
+- 過程中曾先把 Claude 模型升到 `claude-sonnet-4-6`（`416f975`），隨後整段換成 OpenAI
+
+### G. 月報寄送改用 Gmail SMTP（取代 SendGrid）
+- `email_client.py`：SendGrid API → Python 內建 `smtplib`（Gmail SMTP），不再需要額外套件
+- `requirements.txt`：移除 `sendgrid`
+- `deploy.yml` 接入 Gmail SMTP 相關 secrets（commit `3278443`）
+- → 等於繞過 2026-05-18 HANDOFF 待辦 #2：原本卡在「進不了 GCP 758403173010 的 Secret Manager 設 Anthropic／SendGrid 金鑰」，改用可直接在 GitHub repo secret 設定的供應商解決
+
+### H. 關鍵字／版位層級 CSV 支援
+- parser 新增 `detect_report_type()`：分辨「總體」與「關鍵字／版位」兩種 CSV
+- `COLUMN_ALIASES` 加 keyword（關鍵字／搜尋字／search keyword）+ placement（版位）
+- store 新增 `aggregate_keywords()` / `aggregate_placements()`
+- 新 API：`GET /api/v1/keywords/performance`、`GET /api/v1/placements/performance`
+- UI：上傳區加「報表類型徽章」+ 5 期間說明（單日／週／月／3 月對應建議）；「關鍵字研究」頁加「✨ 真實關鍵字表現」「📍 版位表現」區塊（由真實 CSV 聚合）
+
+### I. 修 CPC 報表解析 bug（commit `f35995f`）
+- 補齊蝦皮 CPC 報表的欄位別名
+- 修正「總體報表」被 `detect_report_type()` 誤判為「關鍵字／版位報表」的 bug
+
+---
+
+## 2026-05-21：報表分倉系統 + 新增客戶 bug 修正
+
+### J. 修正「新增店家／客戶」無效（commit `cc26ddf`）
+- 根因：`CustomerReq` model 缺 `shop_ids` 欄位 → Pydantic 丟棄前端傳值；`add_customer` 又硬寫 `shop_ids=[]`
+- 結果新客戶 `shop_ids` 永遠為空，而上傳區「店家／客戶」下拉是由 shop_ids 建立 → 抓不到新客戶 → 看似「新增無效」
+- 修法：補 `shop_ids` 欄位 + 移除硬寫空值
+
+### K. 報表分倉系統（commit `6427df1` / `d456979` / `a24480f`）
+蝦皮廣告 CSV 有兩個維度：**報表類型**（總體 / 關鍵字版位）×**匯出粒度**（單日 / 多日彙總）。原本所有 row 倒進同一聚合池，造成：①關鍵字／版位報表會被重複計入 KPI；②多日彙總（90 天等）日期是假的，被當單日污染日／週 KPI 與趨勢。
+
+- **Phase 1 — 資料層分流**：每筆 row 與 upload 標記 `report_type` × `granularity`。主儀表板聚合（KPI／商品／趨勢／獲利／預算／星期 ROAS）只吃 `overall`+`daily`；關鍵字頁只吃 `keyword_placement`。新增 `list_aggregate_reports()`、`migrate_store()`（server 啟動回填舊資料標記，正式環境舊資料靠這個）。
+- **Phase 2 — UI 標示**：上傳區加「單日／N 日彙總」粒度徽章；KPI 頁顯示資料來源；店家只有多日彙總時改顯示提示導向區間總覽，不再顯示誤導性的 $0。
+- **Phase 3 — 區間總覽**：新增 `GET /api/v1/reports/aggregate-summary`；KPI 頁下方新增「區間總覽」卡片，多日彙總報表各自顯示期間總計（不拆日）。
+
+部署後實測：正式環境真實資料本來就有 3 份多日彙總報表，過去一直灌水 KPI；分倉上線後已分流到區間總覽，KPI 數字回歸真實。
+
+---
+
 ## 測試與品質
 
-- pytest 共 **123 個**全綠（單元 + 整合 + edge case + auth/healthz）
+- pytest 共 **143 個**全綠（單元 + 整合 + edge case + auth/healthz；2026-05-20 +11 report type 偵測；2026-05-21 +9 報表分倉相關測試）
 - 每次 push GitHub Actions 自動驗證
 - Public repo 已驗證無敏感資料洩漏（客戶資料 / 密碼 / 金鑰 / HANDOFF 皆由 .gitignore 擋下）
 
@@ -57,7 +104,7 @@
 - 蝦皮 Open API 不開放廣告數據（CPC/ROAS/點擊）— 廣告數字只能靠 CSV
 - 蝦皮 v4 公開 API 被反爬蟲擋（cloudscraper 也擋）→ 商品評分/庫存目前用推估，需申請 Shopee Partner API（5-10 工作天）
 - 競品監控、高效時段熱力圖、關鍵字探索仍為示範資料（CSV 無此維度）
-- SendGrid / Anthropic 金鑰未設 → 月報寄送、AI 分析走 mock/規則式（設定後自動切真實）
+- AI 顧問已改 OpenAI gpt-4o、月報寄送已改 Gmail SMTP，secrets 皆接進 `deploy.yml`；未設定時仍保留 mock／規則式 fallback（2026-05-20 起，取代原 Anthropic／SendGrid）
 - pytrends 被 Google 限流（daily_trends RSS 仍可用）
 
 ---

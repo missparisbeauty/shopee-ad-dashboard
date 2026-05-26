@@ -43,6 +43,11 @@ const api = {
     if (opts.shop)   q.set('shop',   opts.shop);
     return request(`/kpi/trend?${q}`);
   },
+  getAggregateSummary: (opts = {}) => {
+    const q = new URLSearchParams();
+    if (opts.shop) q.set('shop', opts.shop);
+    return request('/reports/aggregate-summary' + (q.toString() ? '?' + q : ''));
+  },
   getAccounts:   ()                        => request('/accounts'),
   getHeatmap:    (accountId = 'S001')     => request(`/heatmap?account_id=${accountId}`),
   getEvents:     ()                        => request('/events'),

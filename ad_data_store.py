@@ -56,6 +56,9 @@ def _save(store: dict[str, Any]) -> None:
 
 def save_upload(upload_id: str, shop: str, filename: str, parse_result) -> dict[str, Any]:
     """parse_result 為 ad_report_parser.ParseResult"""
+    summary = parse_result.summary or {}
+    report_type = summary.get("report_type") or "overall"
+    granularity = "aggregate" if summary.get("is_lifetime_report") else "daily"
     upload_meta = {
         "id": upload_id,
         "shop": shop,
@@ -65,6 +68,8 @@ def save_upload(upload_id: str, shop: str, filename: str, parse_result) -> dict[
         "raw_columns": parse_result.raw_columns,
         "column_map": parse_result.column_map,
         "skipped_rows": parse_result.skipped_rows,
+        "report_type": report_type,
+        "granularity": granularity,
         "summary": parse_result.summary,
     }
     rows_to_store = []
@@ -72,6 +77,8 @@ def save_upload(upload_id: str, shop: str, filename: str, parse_result) -> dict[
         rows_to_store.append({
             "upload_id": upload_id,
             "shop": shop,
+            "report_type": report_type,
+            "granularity": granularity,
             **r,
         })
     with _lock:
@@ -105,6 +112,69 @@ def has_real_data() -> bool:
     return bool(_load()["rows"])
 
 
+def list_aggregate_reports(shop: str | None = None) -> list[dict[str, Any]]:
+    """回傳多日彙總（granularity=aggregate）的上傳，各自當一筆「區間總計」。
+    給「區間總覽」用 — 這些報表不拆日、不混進日期型聚合。
+    """
+    out: list[dict[str, Any]] = []
+    for u in _load()["uploads"]:
+        s = u.get("summary") or {}
+        gran = u.get("granularity") or ("aggregate" if s.get("is_lifetime_report") else "daily")
+        if gran != "aggregate":
+            continue
+        if shop and u.get("shop") != shop:
+            continue
+        out.append({
+            "upload_id": u["id"],
+            "shop": u.get("shop"),
+            "filename": u.get("filename"),
+            "uploaded_at": u.get("uploaded_at"),
+            "report_type": u.get("report_type") or s.get("report_type") or "overall",
+            "period_start": s.get("report_period_start"),
+            "period_end": s.get("report_period_end"),
+            "period_days": s.get("period_days"),
+            "row_count": s.get("row_count"),
+            "products": s.get("products"),
+            "spend": s.get("total_spend"),
+            "revenue": s.get("total_revenue"),
+            "roas": s.get("roas"),
+            "clicks": s.get("total_clicks"),
+            "impressions": s.get("total_impressions"),
+            "orders": s.get("total_orders"),
+        })
+    out.sort(key=lambda x: (x["period_end"] or "", x["uploaded_at"] or ""), reverse=True)
+    return out
+
+
+def migrate_store() -> bool:
+    """回填舊資料缺少的 report_type / granularity 標記（由 upload summary 推導）。
+    server 啟動時呼叫一次；正式環境舊資料靠這個補標記。回傳是否有變更。
+    """
+    with _lock:
+        store = _load()
+        info: dict[str, tuple[str, str]] = {}
+        changed = False
+        for u in store["uploads"]:
+            s = u.get("summary") or {}
+            rt = u.get("report_type") or s.get("report_type") or "overall"
+            gran = u.get("granularity") or ("aggregate" if s.get("is_lifetime_report") else "daily")
+            info[u["id"]] = (rt, gran)
+            if u.get("report_type") != rt or u.get("granularity") != gran:
+                u["report_type"] = rt
+                u["granularity"] = gran
+                changed = True
+        for r in store["rows"]:
+            if "report_type" in r and "granularity" in r:
+                continue
+            rt, gran = info.get(r.get("upload_id"), ("overall", "daily"))
+            r.setdefault("report_type", rt)
+            r.setdefault("granularity", gran)
+            changed = True
+        if changed:
+            _save(store)
+        return changed
+
+
 def _filter(rows: Iterable[dict], shop: str | None, since: date | None) -> list[dict]:
     out = []
     for r in rows:
@@ -133,11 +203,38 @@ def _period_to_since(period: str) -> date | None:
     return date.today() - timedelta(days=days)
 
 
+# ──────────────── 報表分倉（report_type × granularity）────────────────
+# report_type : "overall"（總體）/ "keyword_placement"（關鍵字版位）
+# granularity : "daily"（單日）/ "aggregate"（多日彙總，如近三個月）
+# 舊資料或測試直接塞的 row 沒有標記 → 預設視為 overall + daily
+
+def _row_type(r: dict) -> str:
+    return r.get("report_type") or "overall"
+
+
+def _row_granularity(r: dict) -> str:
+    return r.get("granularity") or "daily"
+
+
+def _overall_daily(rows: Iterable[dict]) -> list[dict]:
+    """主儀表板資料源：只取「總體報表 + 單日粒度」。
+    - 多日彙總（90 天等）日期是假的 → 排除，避免污染日期型聚合，改走區間總覽。
+    - 關鍵字/版位 row 是總體的拆解 → 排除，避免重複計算。
+    """
+    return [r for r in rows
+            if _row_type(r) == "overall" and _row_granularity(r) == "daily"]
+
+
+def _keyword_placement_rows(rows: Iterable[dict]) -> list[dict]:
+    """關鍵字/版位頁專用資料源。"""
+    return [r for r in rows if _row_type(r) == "keyword_placement"]
+
+
 # ─────────────────────────── 聚合 ───────────────────────────
 
 def aggregate_kpi(shop: str | None = None, period: str = "week") -> dict[str, Any]:
     """聚合 KPI（spend/revenue/roas/acos/ctr/cpm），同時計算 vs 前一期的 delta。"""
-    rows = _load()["rows"]
+    rows = _overall_daily(_load()["rows"])
     since = _period_to_since(period)
     cur = _filter(rows, shop, since)
     cur_sum = _sum_metrics(cur)
@@ -197,7 +294,7 @@ def _sum_metrics(rows: list[dict]) -> dict[str, float]:
 
 def aggregate_products(shop: str | None = None, period: str = "month", limit: int = 50) -> list[dict]:
     """以 product_id 聚合，回傳排序好的商品表現清單。"""
-    rows = _filter(_load()["rows"], shop, _period_to_since(period))
+    rows = _filter(_overall_daily(_load()["rows"]), shop, _period_to_since(period))
     bucket: dict[str, dict] = {}
     for r in rows:
         pid = r.get("product_id") or r.get("product_name")
@@ -233,7 +330,7 @@ def aggregate_products(shop: str | None = None, period: str = "month", limit: in
 def aggregate_daily_trend(shop: str | None = None, days: int = 7) -> list[dict]:
     """每日 spend / revenue 趨勢（給折線圖）。"""
     since = date.today() - timedelta(days=days)
-    rows = _filter(_load()["rows"], shop, since)
+    rows = _filter(_overall_daily(_load()["rows"]), shop, since)
     daily: dict[str, dict] = {}
     for r in rows:
         d = r.get("date")
@@ -254,7 +351,7 @@ def aggregate_keywords(shop: str | None = None, period: str = "month",
     """以「關鍵字」分組聚合（需 keyword/版位 CSV 才有資料）。
     回傳排序好的關鍵字表現清單。
     """
-    rows = _filter(_load()["rows"], shop, _period_to_since(period))
+    rows = _filter(_keyword_placement_rows(_load()["rows"]), shop, _period_to_since(period))
     bucket: dict[str, dict] = {}
     for r in rows:
         kw = r.get("keyword")
@@ -287,7 +384,7 @@ def aggregate_keywords(shop: str | None = None, period: str = "month",
 def aggregate_placements(shop: str | None = None, period: str = "month",
                           limit: int = 100) -> list[dict]:
     """以「版位」分組聚合（需關鍵字/版位 CSV 才有資料）。"""
-    rows = _filter(_load()["rows"], shop, _period_to_since(period))
+    rows = _filter(_keyword_placement_rows(_load()["rows"]), shop, _period_to_since(period))
     bucket: dict[str, dict] = {}
     for r in rows:
         pl = r.get("placement")
@@ -322,7 +419,7 @@ def aggregate_weekday_roas(shop: str | None = None, days: int = 60) -> dict[str,
     所以最細只能做到星期，無法做 7×24 分時熱力圖。
     """
     since = date.today() - timedelta(days=days)
-    rows = _filter(_load()["rows"], shop, since)
+    rows = _filter(_overall_daily(_load()["rows"]), shop, since)
     buckets = {i: {"spend": 0.0, "revenue": 0.0, "dates": set()} for i in range(7)}
     for r in rows:
         d = r.get("date")
@@ -391,7 +488,7 @@ def aggregate_profit(
     沒對應到的 product_id 用預設比例。
     """
     profit_config = profit_config or {}
-    rows = _filter(_load()["rows"], shop, _period_to_since(period))
+    rows = _filter(_overall_daily(_load()["rows"]), shop, _period_to_since(period))
 
     total_revenue = 0.0
     total_ad_spend = 0.0
@@ -474,7 +571,7 @@ def aggregate_today_spend(shop: str | None = None) -> dict[str, Any]:
     yesterday = today - timedelta(days=1)
     week_since = today - timedelta(days=7)
 
-    rows = _filter(_load()["rows"], shop, week_since)
+    rows = _filter(_overall_daily(_load()["rows"]), shop, week_since)
     today_spend = 0.0
     yesterday_spend = 0.0
     week_spend = 0.0
@@ -515,7 +612,7 @@ def aggregate_budget_pacing(
     daily_budget_per_shop: 顯式指定每個帳號的日預算；沒給則用該帳號 7 日均花費 × 1.2 當預算
     """
     daily_budget_per_shop = daily_budget_per_shop or {}
-    rows = _load()["rows"]
+    rows = _overall_daily(_load()["rows"])
     today = date.today()
     yesterday = today - timedelta(days=1)
     week_since = today - timedelta(days=7)
@@ -590,7 +687,7 @@ def aggregate_product_sales(shop: str | None = None, days: int = 30) -> dict[str
     """
     since = date.today() - timedelta(days=days)
     rows = []
-    for r in _load()["rows"]:
+    for r in _overall_daily(_load()["rows"]):
         if shop and r.get("shop") != shop:
             continue
         d = r.get("date")

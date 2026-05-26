@@ -131,6 +131,7 @@ class TestSimpleEndpoints:
         "/api/v1/ad-data/products?period=month",
         "/api/v1/keywords/performance?period=month",
         "/api/v1/placements/performance?period=month",
+        "/api/v1/reports/aggregate-summary",
     ])
     def test_endpoint_returns_200(self, isolated_server, path):
         r = isolated_server.get(path)
@@ -175,6 +176,25 @@ class TestRealDataInResponses:
         assert d["has_real_data"] is True
         assert d["upload_count"] >= 1
         assert "test_shop" in d["shops"]
+
+    def test_aggregate_summary_endpoint(self, isolated_server):
+        """上傳多日彙總報表 → 區間總覽端點應列出它（不進日期型 KPI）"""
+        csv = ("期間,2026/02/01 - 2026/05/01\n"
+               "商品名稱,商品ID,曝光數,點擊數,花費,訂單數,銷售額\n"
+               "測試彙總商品,X1,100000,2000,12000,90,60000\n")
+        r = isolated_server.post(
+            "/api/v1/upload/ad-report",
+            data={"shop": "test_shop"},
+            files={"file": ("agg.csv", csv.encode("utf-8-sig"), "text/csv")},
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["data"]["granularity"] == "aggregate"
+        r = isolated_server.get("/api/v1/reports/aggregate-summary")
+        assert r.status_code == 200
+        items = r.json()["data"]["items"]
+        assert len(items) == 1
+        assert items[0]["period_days"] == 90
+        assert items[0]["spend"] == 12000
 
 
 class TestPostEndpoints:
