@@ -67,7 +67,8 @@ def healthz():
 
 @app.on_event("startup")
 async def _on_startup() -> None:
-    """伺服器啟動時，自動開啟 CSV 資料夾監看（可在 UI 或 API 停用）"""
+    """伺服器啟動時：回填舊資料分倉標記 + 開啟 CSV 資料夾監看。"""
+    ad_data_store.migrate_store()
     csv_watcher.start(scan_interval=5)
 
 
@@ -107,7 +108,10 @@ def get_kpi(
     }
     use_real = source == "real" or (source == "auto" and ad_data_store.has_real_data())
     if use_real and ad_data_store.has_real_data():
-        return ok(ad_data_store.aggregate_kpi(shop=shop, period=period))
+        kpi = ad_data_store.aggregate_kpi(shop=shop, period=period)
+        # 讓前端知道：此店家有幾份「多日彙總」報表（KPI 不含這些，走區間總覽）
+        kpi["_meta"]["aggregate_reports"] = len(ad_data_store.list_aggregate_reports(shop))
+        return ok(kpi)
     return ok(presets[period])
 
 
@@ -136,6 +140,13 @@ def get_trend(
             "spend": int(base_spend * growth * noise),
         })
     return ok({"points": points, "_meta": {"source": "mock"}})
+
+
+@app.get("/api/v1/reports/aggregate-summary")
+def get_aggregate_summary(shop: str | None = None):
+    """多日彙總（過去一週/一個月/近三個月）報表清單 — 給「區間總覽」用。
+    這些報表不拆日、不進日期型 KPI，各自顯示其期間總計。"""
+    return ok({"items": ad_data_store.list_aggregate_reports(shop)})
 
 
 # ─────────────────────────── 帳號總表 ───────────────────────────
@@ -1897,13 +1908,14 @@ class CustomerReq(BaseModel):
     target_acos: float = 30
     contract_start: str = ""
     contract_end: str = ""
+    shop_ids: list[str] = []
 
 
 @app.post("/api/v1/customers")
 def add_customer(req: CustomerReq):
     items = _load_customers()
     item = {"id": f"CU{int(time.time()*1000)%10000}", **req.model_dump(),
-            "shop_ids": [], "settle_day": 25, "status": "active"}
+            "settle_day": 25, "status": "active"}
     items.append(item)
     _save_customers(items)
     return ok(item)
