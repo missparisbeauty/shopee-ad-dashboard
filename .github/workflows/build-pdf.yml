@@ -25,7 +25,10 @@ jobs:
             pandoc \
             texlive-xetex \
             texlive-latex-recommended \
+            texlive-latex-extra \
             texlive-fonts-recommended \
+            texlive-fonts-extra \
+            lmodern \
             fonts-noto-cjk \
             fonts-noto-cjk-extra
 
