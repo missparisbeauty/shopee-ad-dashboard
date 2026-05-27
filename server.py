@@ -1048,6 +1048,33 @@ def delete_upload(upload_id: str):
     return ok({"id": upload_id, "deleted": True})
 
 
+@app.post("/api/v1/uploads/deduplicate")
+def deduplicate_uploads():
+    """清除重複上傳：同 shop + 同 filename 只保留最新一筆，刪除較舊的。"""
+    store = ad_data_store._load()
+    uploads = store["uploads"]
+
+    # 以 (shop, filename) 分組，同組保留 uploaded_at 最新的
+    seen: dict[tuple, dict] = {}
+    to_remove: list[str] = []
+    for u in sorted(uploads, key=lambda x: x.get("uploaded_at", ""), reverse=True):
+        key = (u.get("shop", ""), u.get("filename", ""))
+        if key in seen:
+            to_remove.append(u["id"])
+        else:
+            seen[key] = u
+
+    if not to_remove:
+        return ok({"removed": 0, "message": "沒有重複上傳"})
+
+    # 刪除重複的 uploads + rows
+    for uid in to_remove:
+        ad_data_store.delete_upload(uid)
+
+    return ok({"removed": len(to_remove),
+               "message": f"已清除 {len(to_remove)} 筆重複上傳"})
+
+
 # ─────────────────────────── 真實廣告數據聚合 ───────────────────────────
 
 @app.get("/api/v1/ad-data/status")

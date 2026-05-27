@@ -225,6 +225,13 @@ def _overall_daily(rows: Iterable[dict]) -> list[dict]:
             if _row_type(r) == "overall" and _row_granularity(r) == "daily"]
 
 
+def _overall_any(rows: Iterable[dict]) -> list[dict]:
+    """總體報表所有粒度（daily + aggregate）— 商品分析 fallback 用。
+    當只有彙總報表時仍能計算商品層級指標（ROAS / 健康度 / AI 建議等）。
+    """
+    return [r for r in rows if _row_type(r) == "overall"]
+
+
 def _keyword_placement_rows(rows: Iterable[dict]) -> list[dict]:
     """關鍵字/版位頁專用資料源。"""
     return [r for r in rows if _row_type(r) == "keyword_placement"]
@@ -293,8 +300,14 @@ def _sum_metrics(rows: list[dict]) -> dict[str, float]:
 
 
 def aggregate_products(shop: str | None = None, period: str = "month", limit: int = 50) -> list[dict]:
-    """以 product_id 聚合，回傳排序好的商品表現清單。"""
-    rows = _filter(_overall_daily(_load()["rows"]), shop, _period_to_since(period))
+    """以 product_id 聚合，回傳排序好的商品表現清單。
+    優先用單日粒度；若只有彙總報表，fallback 到彙總 rows（可算商品 ROAS / 訂單）。
+    """
+    all_rows = _load()["rows"]
+    rows = _filter(_overall_daily(all_rows), shop, _period_to_since(period))
+    if not rows:
+        # 沒有日級資料，改用彙總報表的商品行（不做日期過濾，因為日期是期間終點）
+        rows = _filter(_overall_any(all_rows), shop, None)
     bucket: dict[str, dict] = {}
     for r in rows:
         pid = r.get("product_id") or r.get("product_name")
@@ -682,12 +695,15 @@ def aggregate_budget_pacing(
 
 def aggregate_product_sales(shop: str | None = None, days: int = 30) -> dict[str, dict]:
     """近 N 天每個商品的 spend/revenue/orders/clicks/impressions（給商品健康度用）。
-    對於 date=None 的 lifetime 統計列，一律包含（總體報表沒有按日切的情況）。
+    優先用日級資料；若只有彙總報表，fallback 到彙總 rows。
     回傳 dict[product_id, metrics]
     """
     since = date.today() - timedelta(days=days)
+    all_rows = _load()["rows"]
+    daily = _overall_daily(all_rows)
+    use_rows = daily if daily else _overall_any(all_rows)
     rows = []
-    for r in _overall_daily(_load()["rows"]):
+    for r in use_rows:
         if shop and r.get("shop") != shop:
             continue
         d = r.get("date")
