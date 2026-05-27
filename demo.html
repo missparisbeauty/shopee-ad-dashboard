@@ -1632,10 +1632,14 @@
       <button class="modal-close" onclick="closeModal('customer-modal')">×</button>
     </div>
     <div class="modal-body">
+      <div class="form-row" style="margin-bottom:10px">
+        <label>蝦皮店家名稱 * <span style="font-size:11px;color:var(--text-muted);font-weight:400">（需與上傳 CSV 時選的店家一致）</span></label>
+        <input type="text" id="cust-shop" placeholder="例如：MPB、自家3C旗艦店">
+      </div>
       <div class="form-grid">
         <div class="form-row">
-          <label>客戶名稱 *</label>
-          <input type="text" id="cust-name">
+          <label>客戶／公司名稱 *</label>
+          <input type="text" id="cust-name" placeholder="例如：巴黎費司 BODY&FACE">
         </div>
         <div class="form-row">
           <label>聯絡電話</label>
@@ -2170,6 +2174,8 @@ async function saveAccEdit() {
     await api.updateCustomer(cid, body);
     document.getElementById('acc-edit-modal').classList.remove('show');
     loadAccounts();
+    loadCustomerSwitcher();   // ← 同步更新 KPI 選單
+    loadUploadShopOptions();
   } catch(e) {
     msg.textContent = `儲存失敗：${e.message}`;
   } finally {
@@ -2756,6 +2762,7 @@ window.onUploadShopChange = async function(selEl) {
       sel.value = shopName.trim();
     }
     if (typeof loadCustomers === 'function') loadCustomers();  // 同步刷新 CRM 頁
+    if (typeof loadCustomerSwitcher === 'function') loadCustomerSwitcher(); // 同步刷新 KPI 選單
   } catch (e) {
     toast('✗ 新增失敗：' + e.message);
     loadUploadShopOptions();
@@ -4004,18 +4011,21 @@ async function loadCustomers() {
 }
 
 window.openCustomerModal = function() {
-  ['cust-name','cust-contact','cust-email','cust-line'].forEach(id => document.getElementById(id).value = '');
+  ['cust-shop','cust-name','cust-contact','cust-email','cust-line'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('cust-fee').value = 30000;
   document.getElementById('cust-roas').value = 3.5;
   openModal('customer-modal');
 };
 
 window.submitCustomer = async function() {
-  const name = document.getElementById('cust-name').value.trim();
-  if (!name) { toast('客戶名稱必填'); return; }
+  const shopRaw = document.getElementById('cust-shop').value.trim();
+  const name    = document.getElementById('cust-name').value.trim();
+  if (!shopRaw) { toast('蝦皮店家名稱必填'); return; }
+  if (!name)    { toast('客戶名稱必填'); return; }
   try {
     await api.addCustomer({
       name,
+      shop_ids: shopRaw.split(',').map(s => s.trim()).filter(Boolean),
       contact: document.getElementById('cust-contact').value,
       email: document.getElementById('cust-email').value,
       line_id: document.getElementById('cust-line').value,
@@ -4027,12 +4037,20 @@ window.submitCustomer = async function() {
     closeModal('customer-modal');
     toast('✓ 已新增客戶');
     loadCustomers();
+    loadCustomerSwitcher();   // ← 同步更新 KPI 選單
+    loadUploadShopOptions();  // ← 同步更新上傳選單
   } catch (e) { toast('✗ ' + e.message); }
 };
 
 window.onRemoveCustomer = async function(id) {
   if (!confirm('移除此客戶？')) return;
-  try { await api.removeCustomer(id); toast('✓ 已移除'); loadCustomers(); }
+  try {
+    await api.removeCustomer(id);
+    toast('✓ 已移除');
+    loadCustomers();
+    loadCustomerSwitcher();   // ← 同步更新 KPI 選單
+    loadUploadShopOptions();
+  }
   catch (e) { toast('✗ ' + e.message); }
 };
 
