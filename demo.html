@@ -999,32 +999,75 @@
     <div class="card">
       <div class="card-head">
         <div style="font-size:12px;color:#7C2D12">
-          ⚠️ 目前無法從蝦皮抓真實的評分／庫存（蝦皮有防機器人保護）。
-          所以這頁的「評分／庫存／價格競爭力」是<strong>系統依銷售推估的，僅供參考</strong>。
-          想要真實數字：<a href="https://open.shopee.com" target="_blank" style="color:#2563EB">申請蝦皮開放平台合作夥伴</a>後請工程師設定即可。
+          ⚠️ 蝦皮有防機器人保護，無法自動抓評分／庫存。「評分／庫存／價競力」欄是<strong>系統依銷售推估</strong>。
+          <strong style="color:#1d4ed8">可點每列的「✏️ 手填」輸入真實數字（自己查蝦皮賣場後填入即可）</strong>，填入後立即生效且永久保存。
         </div>
+        <button class="btn" onclick="loadHealth()" style="flex:0;padding:5px 12px;font-size:12px">🔄 重整</button>
       </div>
-      <div id="health-sync-result" style="padding:0 20px"></div>
       <div style="padding:8px 20px;font-size:12px;color:#92400E;background:#FEF9C3;border-radius:6px;margin:0 20px 8px">
-        🔸 標「<strong>推估</strong>」的欄位（評分/評論/庫存/價競力）是<strong>系統依銷售量推算的，僅供參考</strong>——蝦皮匯出的 CSV 沒有這些資料。<br>
-        🔹 「<strong>30天銷量</strong>」與「<strong>健康度</strong>」是基於你真實 CSV 訂單數，可信。
+        🔸 標「<strong>推估</strong>」= 系統依銷售量推算，僅供參考（點 ✏️ 可覆蓋為真實值）<br>
+        🔹 「<strong>30天銷量</strong>」與「<strong>健康度</strong>」是基於你真實 CSV 訂單數，可信。✏️ 手填過的欄位會標綠色。
       </div>
       <table>
         <thead>
           <tr>
             <th>商品</th><th>賣場</th>
-            <th style="color:#a16207">評分<sup>推估</sup></th>
-            <th style="color:#a16207">評論數<sup>推估</sup></th>
-            <th style="color:#a16207">庫存<sup>推估</sup></th>
-            <th style="color:#a16207">價競力<sup>推估</sup></th>
+            <th style="color:#a16207">評分</th>
+            <th style="color:#a16207">評論數</th>
+            <th style="color:#a16207">庫存</th>
+            <th style="color:#a16207">價競力</th>
             <th>30 天銷量<sup style="color:#16a34a">真實</sup></th>
-            <th>健康度</th><th>建議</th>
+            <th>健康度</th><th>建議</th><th></th>
           </tr>
         </thead>
         <tbody id="health-tbody"></tbody>
       </table>
     </div>
   </section>
+
+  <!-- 健康度手動填寫 Modal -->
+  <div class="modal-mask" id="health-edit-modal">
+    <div class="modal" style="width:420px">
+      <div class="modal-head">
+        <div class="modal-title">✏️ 手填真實數字</div>
+        <button class="modal-close" onclick="closeModal('health-edit-modal')">×</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="health-edit-pid">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px" id="health-edit-pname"></div>
+        <div class="form-grid">
+          <div class="form-row">
+            <label>蝦皮評分（1.0–5.0）</label>
+            <input type="number" id="health-edit-rating" step="0.1" min="1" max="5" placeholder="例如 4.7">
+          </div>
+          <div class="form-row">
+            <label>評論數</label>
+            <input type="number" id="health-edit-reviews" min="0" placeholder="例如 328">
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-row">
+            <label>庫存（件）</label>
+            <input type="number" id="health-edit-stock" min="0" placeholder="例如 150">
+          </div>
+          <div class="form-row">
+            <label>價格競爭力（0–100）</label>
+            <input type="number" id="health-edit-price" min="0" max="100" placeholder="例如 80（越高越有優勢）">
+          </div>
+        </div>
+        <div class="form-row">
+          <label>備註</label>
+          <input type="text" id="health-edit-note" placeholder="選填，例如：2026-05 查蝦皮後台">
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">空白欄位保留系統推估值；只需填你知道的欄位即可。</div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-danger-ghost" onclick="clearHealthConfig()" style="margin-right:auto">清除手填</button>
+        <button class="btn" onclick="closeModal('health-edit-modal')">取消</button>
+        <button class="btn btn-primary" onclick="saveHealthConfig()">儲存</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Page: 預算與自動規則 -->
   <section class="page" id="page-rules" data-hub="ai-rules" data-tab-label="預算 + 規則">
@@ -1263,15 +1306,18 @@
             <div class="card-title">📱 LINE Notify 即時推播</div>
             <div style="font-size:12px;color:var(--text-muted);margin-top:4px">代操不會整天盯儀表板 · 重要事件直接推到 LINE</div>
           </div>
-          <button class="btn" onclick="onTestNotify()" style="flex:0;padding:6px 14px">📨 送測試訊息</button>
+          <button class="btn" id="line-test-btn" onclick="onTestNotify()" style="flex:0;padding:6px 14px;display:none">📨 送測試訊息</button>
         </div>
         <div style="padding:20px">
-          <div class="form-row">
-            <label>LINE Notify Token</label>
-            <input type="text" id="line-token" placeholder="從 https://notify-bot.line.me 申請後貼上">
-            <div style="font-size:11px;color:var(--text-muted);margin-top:4px">申請流程：登入 → 個人頁面 → 發行存取權杖（指定通話對象 → 取得 token）</div>
+          <div id="line-not-configured" style="display:none;background:#FEF9C3;border:1px solid #EAB308;border-radius:8px;padding:14px 16px;margin-bottom:16px;font-size:13px">
+            ⚠️ <strong>尚未設定 LINE Notify Token</strong><br>
+            <span style="color:#713F12">申請流程：前往 <a href="https://notify-bot.line.me" target="_blank">notify-bot.line.me</a> → 登入 → 個人頁面 → 發行存取權杖 → 選擇推播對象（自己或群組）→ 複製 Token 填入下方</span>
           </div>
           <div class="form-row">
+            <label>LINE Notify Token</label>
+            <input type="text" id="line-token" placeholder="貼上從 notify-bot.line.me 申請的 Token" oninput="onLineTokenInput()">
+          </div>
+          <div class="form-row" id="line-events-row" style="display:none">
             <label>推播事件</label>
             <div id="notify-events" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px"></div>
           </div>
@@ -1818,7 +1864,7 @@ const HUB_CONFIG = {
   'ai-rules':  { sections: ['ai', 'rules'] },
   'customers': { sections: ['customers'], stacked: true },
   'settings':  { sections: ['settings', 'team'] },
-  'advanced':  { sections: ['hours', 'calendar', 'competitor', 'audience', 'multiplatform'] },
+  'advanced':  { sections: ['hours', 'calendar', 'audience'] },
 };
 
 // 目前選中的 hub → tab mapping
@@ -3469,36 +3515,98 @@ async function loadHealth() {
   try {
     const shop = _getCurrentShop();
     const r = await api.getHealthScores(shop ? { shop } : {});
-    // 在表格上方插入 source badge（如果有 health-list 容器）
+    // source badge
     const badgeWrap = document.getElementById('health-source-badge');
     if (badgeWrap) {
       const m = r._meta || {};
+      const manualCount = (m.manual_fields || []).length;
       const info = m.source === 'real'
-        ? `（${m.products} 商品｜評分/評論/庫存/價競力為系統推估，僅供參考）`
+        ? `（${m.products} 個廣告活動/商品${manualCount ? ' · ' + manualCount + ' 筆已手填真實數字' : ''}）`
         : '';
       badgeWrap.innerHTML = sourceBadge(m, info);
     }
-    // 推估欄位用淡灰斜體弱化，真實欄位正常黑字
+    const manualSet = new Set((r._meta || {}).manual_fields || []);
     const estStyle = 'color:#94a3b8;font-style:italic';
+    const realStyle = 'color:#16a34a;font-weight:600';
     document.getElementById('health-tbody').innerHTML = r.items.map(p => {
-      const recCls = {'強投':'roas-good','正常':'trend-flat','減投':'roas-warn','停投':'roas-bad'}[p.recommendation];
-      const recIcon = {'強投':'🟢','正常':'⚪','減投':'🟡','停投':'🔴'}[p.recommendation];
+      const isManual = p.has_manual_config;
+      const recCls  = {'強投':'roas-good','正常':'trend-flat','減投':'roas-warn','停投':'roas-bad'}[p.recommendation] || '';
+      const recIcon = {'強投':'🟢','正常':'⚪','減投':'🟡','停投':'🔴'}[p.recommendation] || '';
+      const numStyle = isManual ? realStyle : estStyle;
+      const prefix   = isManual ? '' : '~';
       return `<tr>
-        <td><strong>${p.name}</strong></td>
+        <td><strong>${escHtml(p.name)}</strong>${isManual ? ' <span style="font-size:10px;color:#16a34a" title="已手填真實數字">✅</span>' : ''}</td>
         <td><span class="badge badge-client">${escHtml(p.shop || '—')}</span></td>
-        <td class="num" style="${estStyle}" title="系統推估，僅供參考">~${p.rating}</td>
-        <td class="num" style="${estStyle}" title="系統推估，僅供參考">~${p.reviews}</td>
-        <td class="num" style="${estStyle}" title="系統推估，僅供參考">~${p.stock}</td>
-        <td class="num" style="${estStyle}" title="系統推估，僅供參考">~${p.price_competitiveness}</td>
+        <td class="num" style="${numStyle}" title="${isManual?'手填真實值':'系統推估，僅供參考'}">${prefix}${p.rating}</td>
+        <td class="num" style="${numStyle}" title="${isManual?'手填真實值':'系統推估，僅供參考'}">${prefix}${p.reviews}</td>
+        <td class="num" style="${numStyle}" title="${isManual?'手填真實值':'系統推估，僅供參考'}">${prefix}${p.stock}</td>
+        <td class="num" style="${numStyle}" title="${isManual?'手填真實值':'系統推估，僅供參考'}">${prefix}${p.price_competitiveness}</td>
         <td class="num" style="font-weight:600">${p.sales_30d}</td>
         <td class="num"><strong style="font-size:16px">${p.health_score}</strong> / 100</td>
         <td><span class="${recCls}" style="font-weight:600">${recIcon} ${p.recommendation}</span></td>
+        <td><button class="btn-sm" onclick="openHealthEdit(${JSON.stringify(p.id)},${JSON.stringify(p.name)})" title="手填真實評分/庫存">✏️</button></td>
       </tr>`;
     }).join('');
   } catch (e) {
     showError('health-tbody', '載入失敗：' + e.message);
   }
 }
+
+// 健康度手填 Modal
+let _healthEditShop = null;
+window.openHealthEdit = async function(pid, pname) {
+  document.getElementById('health-edit-pid').value = pid;
+  document.getElementById('health-edit-pname').textContent = '商品：' + pname;
+  // 載入現有設定
+  ['rating','reviews','stock','price','note'].forEach(f => {
+    const el = document.getElementById('health-edit-' + f);
+    if (el) el.value = '';
+  });
+  _healthEditShop = _getCurrentShop();
+  try {
+    const cfg = await api.getHealthConfig(_healthEditShop);
+    const mc = cfg[pid] || cfg[pname] || {};
+    if (mc.rating !== undefined && mc.rating !== null)  document.getElementById('health-edit-rating').value = mc.rating;
+    if (mc.reviews !== undefined && mc.reviews !== null) document.getElementById('health-edit-reviews').value = mc.reviews;
+    if (mc.stock !== undefined && mc.stock !== null)    document.getElementById('health-edit-stock').value = mc.stock;
+    if (mc.price_competitiveness !== undefined && mc.price_competitiveness !== null) document.getElementById('health-edit-price').value = mc.price_competitiveness;
+    if (mc.note) document.getElementById('health-edit-note').value = mc.note;
+  } catch (_) {}
+  openModal('health-edit-modal');
+};
+
+window.saveHealthConfig = async function() {
+  const pid  = document.getElementById('health-edit-pid').value;
+  const body = {
+    rating:               parseFloat(document.getElementById('health-edit-rating').value) || null,
+    reviews:              parseInt(document.getElementById('health-edit-reviews').value) || null,
+    stock:                parseInt(document.getElementById('health-edit-stock').value) || null,
+    price_competitiveness:parseInt(document.getElementById('health-edit-price').value) || null,
+    note:                 document.getElementById('health-edit-note').value.trim(),
+  };
+  // 只傳有填的欄位
+  if (!body.rating && body.rating !== 0) delete body.rating;
+  if (!body.reviews) delete body.reviews;
+  if (!body.stock && body.stock !== 0) delete body.stock;
+  if (!body.price_competitiveness) delete body.price_competitiveness;
+  try {
+    await api.updateHealthConfig(pid, body);
+    closeModal('health-edit-modal');
+    toast('✓ 已儲存，重新計算健康度中…');
+    loadHealth();
+  } catch(e) { toast('✗ ' + e.message); }
+};
+
+window.clearHealthConfig = async function() {
+  const pid = document.getElementById('health-edit-pid').value;
+  if (!confirm('清除此商品的手填設定，改回系統推估？')) return;
+  try {
+    await api.deleteHealthConfig(pid);
+    closeModal('health-edit-modal');
+    toast('✓ 已清除手填設定');
+    loadHealth();
+  } catch(e) { toast('✗ ' + e.message); }
+};
 
 /* ────────── 預算燒爆預警 + 規則引擎 ────────── */
 async function loadBudgetPacing() {
@@ -4245,21 +4353,33 @@ window.onRemoveTeamMember = async function(id) {
 async function loadNotifyConfig() {
   try {
     const cfg = await api.getNotifyConfig();
-    if (cfg.line_token) document.getElementById('line-token').value = cfg.line_token;
+    const hasToken = !!(cfg.line_token && cfg.line_token.trim());
+    // 未設定 token → 顯示警告，隱藏推播事件選項和測試按鈕
+    document.getElementById('line-not-configured').style.display = hasToken ? 'none' : 'block';
+    document.getElementById('line-events-row').style.display    = hasToken ? 'block' : 'none';
+    document.getElementById('line-test-btn').style.display      = hasToken ? '' : 'none';
+    if (hasToken) document.getElementById('line-token').value = cfg.line_token;
     const eventLabels = {
-      roas_drop: 'ROAS 暴跌（單日 -30%）',
-      budget_burn: '預算燒爆預警（中午前燒 70%）',
-      competitor_drop: '競品大幅降價',
+      roas_drop:     'ROAS 暴跌（單日 -30%）',
+      budget_burn:   '預算燒爆預警（中午前燒 70%）',
       ai_suggestion: 'AI 產生新建議',
-      rule_triggered: '自動規則觸發',
+      rule_triggered:'自動規則觸發',
     };
     document.getElementById('notify-events').innerHTML = Object.entries(eventLabels).map(([k, label]) => `
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px;border:1px solid var(--border);border-radius:6px">
-        <input type="checkbox" data-event="${k}" ${cfg.events[k]?'checked':''}>
+        <input type="checkbox" data-event="${k}" ${cfg.events && cfg.events[k]?'checked':''}>
         <span style="font-size:13px">${label}</span>
       </label>`).join('');
   } catch (e) { console.error(e); }
 }
+
+window.onLineTokenInput = function() {
+  // 即時更新 UI：填了 token 就顯示事件選項
+  const hasToken = !!document.getElementById('line-token').value.trim();
+  document.getElementById('line-not-configured').style.display = hasToken ? 'none' : 'block';
+  document.getElementById('line-events-row').style.display     = hasToken ? 'block' : 'none';
+  document.getElementById('line-test-btn').style.display       = hasToken ? '' : 'none';
+};
 
 window.saveNotifyConfig = async function() {
   const token = document.getElementById('line-token').value.trim();

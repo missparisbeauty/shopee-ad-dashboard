@@ -196,6 +196,10 @@ const api = {
     return request('/rules/run' + (q.toString() ? '?'+q : ''), { method:'POST' });
   },
   previewRules:    (shop) => request('/rules/preview' + (shop ? '?shop='+encodeURIComponent(shop) : ''), { method:'POST' }),
+  // 商品健康度手動設定（評分/庫存/價競力）
+  getHealthConfig:    (shop) => request('/products/health-config' + (shop ? `?shop=${encodeURIComponent(shop)}` : '')),
+  updateHealthConfig: (pid, body) => request(`/products/health-config/${encodeURIComponent(pid)}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }),
+  deleteHealthConfig: (pid) => request(`/products/health-config/${encodeURIComponent(pid)}`, { method:'DELETE' }),
   // 商品健康度
   getHealthScores: (opts={}) => {
     const q = new URLSearchParams();

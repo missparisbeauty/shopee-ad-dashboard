@@ -1714,35 +1714,98 @@ def _calc_health_factors(p: dict) -> None:
     }
 
 
+# ─────────────── 商品健康度手動設定（補真實評分/庫存） ───────────────
+HEALTH_CONFIG_FILE = ROOT / "health_config.json"
+
+
+def _load_health_cfg() -> dict:
+    if HEALTH_CONFIG_FILE.exists():
+        return json.loads(HEALTH_CONFIG_FILE.read_text(encoding="utf-8"))
+    return {}
+
+
+def _save_health_cfg(cfg: dict):
+    HEALTH_CONFIG_FILE.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+class HealthConfigItem(BaseModel):
+    rating: float | None = None           # 1.0 ~ 5.0
+    reviews: int | None = None            # 評論數
+    stock: int | None = None              # 庫存數
+    price_competitiveness: int | None = None  # 0 ~ 100
+    note: str = ""
+
+
+@app.get("/api/v1/products/health-config")
+def get_health_config(shop: str | None = None):
+    """取得手動填入的評分 / 庫存設定"""
+    cfg = _load_health_cfg()
+    if shop:
+        cfg = {k: v for k, v in cfg.items() if v.get("shop") == shop or not v.get("shop")}
+    return ok(cfg)
+
+
+@app.put("/api/v1/products/health-config/{pid}")
+def update_health_config(pid: str, req: HealthConfigItem, shop: str | None = None):
+    """手動填入某商品的真實評分 / 庫存"""
+    cfg = _load_health_cfg()
+    entry = req.model_dump()
+    if shop:
+        entry["shop"] = shop
+    cfg[pid] = entry
+    _save_health_cfg(cfg)
+    return ok(cfg[pid])
+
+
+@app.delete("/api/v1/products/health-config/{pid}")
+def delete_health_config(pid: str):
+    cfg = _load_health_cfg()
+    cfg.pop(pid, None)
+    _save_health_cfg(cfg)
+    return ok({"deleted": pid})
+
+
 @app.get("/api/v1/products/health-scores")
 def get_health_scores(
     source: str = Query("auto", pattern="^(auto|mock|real)$"),
     shop: str | None = None,
 ):
     """商品健康度：評分 + 庫存 + 價格競爭力 + 評論數
-    source=real：用 CSV 真實商品的近 30 天 orders 當 sales_30d；評分/庫存/價競力暫時用估算值（未來接 Shopee Open API）
+    手動設定的欄位優先；未設定的才用銷售推估。
     """
+    manual_cfg = _load_health_cfg()
     use_real = source == "real" or (source == "auto" and ad_data_store.has_real_data())
     if use_real and ad_data_store.has_real_data():
         sales = ad_data_store.aggregate_product_sales(shop=shop, days=30)
         if sales:
             products = []
+            manual_fields_used = set()
             for pid, m in sales.items():
-                # 估算評分/庫存/價競力（未接 Open API 前的假設值，根據實際銷售推估）
-                # 銷量好的商品通常評分高、價競力強
+                # 取手動設定（優先 pid，其次 product_name）
+                mc = manual_cfg.get(pid) or manual_cfg.get(m["product_name"], {})
+                # 估算 fallback
                 est_rating = min(5.0, 3.5 + min(1.5, m["orders"] / 50))
                 est_reviews = max(10, int(m["orders"] * 1.2))
                 est_stock = max(0, 200 - m["units_sold"]) if m["units_sold"] else 100
                 est_price_comp = min(95, 50 + min(45, m["orders"] / 5))
+                # 手動值覆蓋推估值
+                rating = mc.get("rating") if mc.get("rating") is not None else est_rating
+                reviews = mc.get("reviews") if mc.get("reviews") is not None else est_reviews
+                stock = mc.get("stock") if mc.get("stock") is not None else est_stock
+                price_comp = mc.get("price_competitiveness") if mc.get("price_competitiveness") is not None else est_price_comp
+                is_manual = bool(mc and any(mc.get(f) is not None for f in ["rating","reviews","stock","price_competitiveness"]))
+                if is_manual:
+                    manual_fields_used.add(pid)
                 products.append({
                     "id": pid,
                     "name": m["product_name"],
                     "shop": m["shop"],
-                    "rating": round(est_rating, 1),
-                    "reviews": est_reviews,
-                    "stock": est_stock,
-                    "price_competitiveness": round(est_price_comp),
+                    "rating": round(rating, 1),
+                    "reviews": int(reviews),
+                    "stock": int(stock),
+                    "price_competitiveness": round(price_comp),
                     "sales_30d": m["orders"],
+                    "has_manual_config": is_manual,
                     # 真實廣告指標
                     "ad_spend_30d": round(m["spend"], 2),
                     "ad_revenue_30d": round(m["revenue"], 2),
@@ -1754,7 +1817,7 @@ def get_health_scores(
             products.sort(key=lambda x: x["health_score"], reverse=True)
             return ok({"items": products, "_meta": {
                 "source": "real", "row_count_basis": "近 30 天 CSV 資料",
-                "estimated_fields": ["rating", "reviews", "stock", "price_competitiveness"],
+                "manual_fields": list(manual_fields_used),
                 "products": len(products),
             }})
 

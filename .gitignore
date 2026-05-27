@@ -13,6 +13,7 @@ venv/
 ad_reports.json
 customers.json
 profit_config.json
+health_config.json
 shopee_connections.json
 shopee_products.json
 report_log.json
