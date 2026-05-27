@@ -892,10 +892,11 @@
         <table>
           <thead>
             <tr>
-              <th>賣場</th><th>商品</th>
-              <th>點擊趨勢</th><th>加購趨勢</th>
-              <th>轉換率</th><th>目前廣告</th>
-              <th>AI 建議</th><th></th>
+              <th>賣場</th><th>廣告 / 商品</th>
+              <th class="num">點擊</th><th class="num">訂單</th>
+              <th class="num">ROAS</th><th class="num">花費</th>
+              <th class="num">CTR</th>
+              <th>建議</th><th></th>
             </tr>
           </thead>
           <tbody id="rising-tbody"></tbody>
@@ -2353,18 +2354,31 @@ document.querySelectorAll('#ai-filter .chip').forEach(c => {
 async function loadRising() {
   try {
     const r = await api.getRising();
-    document.getElementById('rising-tbody').innerHTML = r.items.map(p => `
-      <tr>
-        <td><span class="badge badge-client">${escHtml(p.shop || '—')}</span></td>
-        <td>${p.product}</td>
-        <td>${sparkline(p.clicks)} ${deltaTxt(p.clicks_delta)}</td>
-        <td>${deltaTxt(p.cart_delta)}</td>
-        <td class="num">${p.conv}%</td>
-        <td class="num">$${p.current_budget}/日</td>
-        <td><span class="ai-type">${p.suggest}</span></td>
-        <td><button class="btn btn-primary" style="padding:4px 12px;font-size:12px"
+    const items = (r.items || r || []);
+    if (!items.length) {
+      document.getElementById('rising-tbody').innerHTML =
+        '<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:20px">尚無資料，請先上傳廣告 CSV</td></tr>';
+      return;
+    }
+    const roasColor = (v) => v >= 4 ? 'roas-good' : v >= 2 ? 'trend-flat' : 'roas-bad';
+    document.getElementById('rising-tbody').innerHTML = items.map(p => {
+      const shopVal = p.shop && p.shop !== '—' ? escHtml(p.shop) : '—';
+      const roas = p.roas || 0;
+      const score = p.score || 0;
+      const isBullish = score > 5;
+      return `<tr${isBullish ? ' style="background:rgba(22,163,74,0.04)"' : ''}>
+        <td><span class="badge badge-client">${shopVal}</span></td>
+        <td style="max-width:200px;white-space:normal;font-size:13px">${escHtml(p.product || p.name || '—')}</td>
+        <td class="num">${(p.clicks_total || 0).toLocaleString()}</td>
+        <td class="num">${p.orders || 0}</td>
+        <td class="num ${roasColor(roas)}">${roas.toFixed(2)}</td>
+        <td class="num">$${(p.spend || 0).toLocaleString()}</td>
+        <td class="num">${((p.ctr || 0)).toFixed(2)}%</td>
+        <td><span class="ai-type" style="font-size:12px">${escHtml(p.suggest || '—')}</span></td>
+        <td><button class="btn btn-primary" style="padding:4px 10px;font-size:12px"
             onclick='openAdjustModal(${JSON.stringify(p).replace(/'/g, "&#39;")})'>套用</button></td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
   } catch (e) {
     showError('rising-tbody', `載入失敗：${e.message}`);
   }
@@ -2374,45 +2388,47 @@ async function loadRising() {
 async function loadOptimized() {
   try {
     const r = await api.getOptimized();
-    document.getElementById('ba-list').innerHTML = r.items.map(b => `
-      <div class="ba-card">
+    const items = r.items || r || [];
+    if (!items.length) {
+      document.getElementById('ba-list').innerHTML =
+        '<div style="padding:24px;text-align:center;color:var(--text-muted)">尚無資料，請先上傳廣告 CSV</div>';
+      return;
+    }
+    document.getElementById('ba-list').innerHTML = items.map(b => {
+      const bef = b.before || {};
+      const aft = b.after  || {};
+      const lft = b.lift   || {};
+      const hasRevenue = (aft.revenue || 0) > 0;
+      return `<div class="ba-card">
         <div class="ba-head">
           <div>
-            <div class="ba-product">${b.product}</div>
-            <div class="ba-shop">${b.shop}</div>
+            <div class="ba-product" style="font-size:13px;max-width:320px;white-space:normal">${escHtml(b.product || b.name || '—')}</div>
+            <div class="ba-shop">${escHtml(b.shop || '—')}</div>
           </div>
-          <span class="ba-action">⚡ ${b.action}</span>
+          <span class="ba-action ${hasRevenue?'roas-good':'trend-flat'}" style="font-size:12px;padding:4px 10px;border-radius:8px">
+            ${hasRevenue ? '✅ 有轉換' : '⚠️ 有點擊無轉換'}
+          </span>
         </div>
         <div class="ba-grid">
           <div class="ba-col">
-            <div class="ba-col-label">調整前 · 7 天</div>
-            <div class="ba-col-row"><span class="k">點擊</span><span class="v">${b.before.clicks.toLocaleString()}</span></div>
-            <div class="ba-col-row"><span class="k">加購</span><span class="v">${b.before.cart}</span></div>
-            <div class="ba-col-row"><span class="k">訂單</span><span class="v">${b.before.orders}</span></div>
-            <div class="ba-col-row"><span class="k">花費</span><span class="v">${fmt$(b.before.spend)}</span></div>
-            <div class="ba-col-row"><span class="k">營收</span><span class="v">${fmt$(b.before.revenue)}</span></div>
-            <div class="ba-col-row"><span class="k">ROAS</span><span class="v">${b.before.roas}</span></div>
+            <div class="ba-col-label">目前累計</div>
+            <div class="ba-col-row"><span class="k">點擊</span><span class="v">${(aft.clicks||0).toLocaleString()}</span></div>
+            <div class="ba-col-row"><span class="k">訂單</span><span class="v">${aft.orders||0}</span></div>
+            <div class="ba-col-row"><span class="k">花費</span><span class="v">${fmt$(aft.spend||0)}</span></div>
+            <div class="ba-col-row"><span class="k">營收</span><span class="v">${fmt$(aft.revenue||0)}</span></div>
+            <div class="ba-col-row"><span class="k">ROAS</span><span class="v ${(aft.roas||0)>=4?'roas-good':(aft.roas||0)>=2?'':'roas-bad'}">${(aft.roas||0).toFixed(2)}</span></div>
           </div>
-          <div class="ba-arrow">→</div>
-          <div class="ba-col">
-            <div class="ba-col-label">調整後 · 7 天</div>
-            <div class="ba-col-row"><span class="k">點擊</span><span class="v">${b.after.clicks.toLocaleString()}</span></div>
-            <div class="ba-col-row"><span class="k">加購</span><span class="v">${b.after.cart}</span></div>
-            <div class="ba-col-row"><span class="k">訂單</span><span class="v">${b.after.orders}</span></div>
-            <div class="ba-col-row"><span class="k">花費</span><span class="v">${fmt$(b.after.spend)}</span></div>
-            <div class="ba-col-row"><span class="k">營收</span><span class="v">${fmt$(b.after.revenue)}</span></div>
-            <div class="ba-col-row"><span class="k">ROAS</span><span class="v">${b.after.roas}</span></div>
-          </div>
+          <div class="ba-arrow">📊</div>
           <div class="ba-lift">
-            <div class="ba-col-label" style="color:var(--accent)">提升幅度</div>
-            <div class="ba-lift-row"><span>點擊</span><span class="v">${b.lift.clicks}</span></div>
-            <div class="ba-lift-row"><span>加購</span><span class="v">${b.lift.cart}</span></div>
-            <div class="ba-lift-row"><span>訂單</span><span class="v">${b.lift.orders}</span></div>
-            <div class="ba-lift-row"><span>營收</span><span class="v">${b.lift.revenue}</span></div>
-            <div class="ba-lift-row"><span>ROAS</span><span class="v">${b.lift.roas}</span></div>
+            <div class="ba-col-label" style="color:var(--accent)">vs 上一期</div>
+            <div class="ba-lift-row"><span>點擊</span><span class="v">${lft.clicks||'—'}</span></div>
+            <div class="ba-lift-row"><span>訂單</span><span class="v">${lft.orders||'—'}</span></div>
+            <div class="ba-lift-row"><span>營收</span><span class="v">${lft.revenue||'—'}</span></div>
+            <div class="ba-lift-row"><span>ROAS</span><span class="v">${lft.roas||'—'}</span></div>
           </div>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   } catch (e) {
     showError('ba-list', `載入失敗：${e.message}`);
   }
