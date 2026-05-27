@@ -214,6 +214,7 @@ const api = {
   // CRM + 月報
   listCustomers:   ()                       => request('/customers'),
   addCustomer:     (body)                   => request('/customers', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }),
+  updateCustomer:  (id, body)               => request(`/customers/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }),
   removeCustomer:  (id)                     => request(`/customers/${id}`, { method:'DELETE' }),
   getMonthlyReport:(cid)                    => request(`/reports/monthly/${cid}`),
   sendReport:      (body)                   => request('/reports/send', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }),

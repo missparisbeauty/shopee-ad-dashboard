@@ -183,6 +183,8 @@ def get_accounts():
             status = "warn"
         else:
             status = "active"
+        monthly_fee = (cust or {}).get("monthly_fee", 0)
+        budget_used = round(kpi["spend"] / monthly_fee * 100, 1) if monthly_fee > 0 else None
         items.append({
             "id": shop,
             "type": "client" if cust else "own",  # 已綁客戶 = client，未綁 = 自家
@@ -193,9 +195,18 @@ def get_accounts():
             "revenue": kpi["revenue"],
             "roas": roas,
             "target_roas": target_roas,
+            "monthly_fee": monthly_fee,
+            "budget_used": budget_used,
             "settle_day": (cust or {}).get("settle_day", 25),
             "status": status,
             "row_count": kpi["_meta"]["row_count"],
+            # 編輯用欄位
+            "contact": (cust or {}).get("contact", ""),
+            "email": (cust or {}).get("email", ""),
+            "target_acos": (cust or {}).get("target_acos", 30),
+            "contract_start": (cust or {}).get("contract_start", ""),
+            "contract_end": (cust or {}).get("contract_end", ""),
+            "shop_ids": (cust or {}).get("shop_ids", [shop]),
         })
     items.sort(key=lambda x: x["revenue"], reverse=True)
     return ok({"items": items, "total": len(items),
@@ -1919,6 +1930,18 @@ def add_customer(req: CustomerReq):
     items.append(item)
     _save_customers(items)
     return ok(item)
+
+
+@app.put("/api/v1/customers/{cid}")
+def update_customer(cid: str, req: CustomerReq):
+    items = _load_customers()
+    idx = next((i for i, c in enumerate(items) if c["id"] == cid), None)
+    if idx is None:
+        raise HTTPException(404, "customer not found")
+    # 保留原有 id / settle_day / status，其餘由 req 覆寫
+    items[idx] = {**items[idx], **req.model_dump(), "id": cid}
+    _save_customers(items)
+    return ok(items[idx])
 
 
 @app.delete("/api/v1/customers/{cid}")

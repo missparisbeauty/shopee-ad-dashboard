@@ -523,6 +523,18 @@
     outline:none; border-color:var(--accent);
   }
   .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  /* ── 帳號表操作按鈕 ── */
+  .acc-actions { white-space:nowrap; }
+  .btn-sm { padding:4px 10px; font-size:12px; }
+  .btn-danger-ghost {
+    background:none; color:#DC2626;
+    border:1px solid #DC2626;
+  }
+  .btn-danger-ghost:hover { background:#FEE2E2; }
+  .btn-danger {
+    background:#DC2626; color:#fff; border:1px solid #DC2626;
+  }
+  .btn-danger:hover { background:#B91C1C; }
   .info-box {
     background:var(--surface2);
     border-radius:6px;
@@ -761,7 +773,7 @@
           <tr>
             <th>類型</th><th>店家名稱</th>
             <th>花費</th><th>營收</th><th>ROAS</th>
-            <th>預算使用率</th><th>月結算日</th><th>狀態</th>
+            <th>預算使用率</th><th>月結算日</th><th>狀態</th><th>操作</th>
           </tr>
         </thead>
         <tbody id="acc-tbody"></tbody>
@@ -1407,6 +1419,66 @@
 
 <!-- ─────────── Modals ─────────── -->
 
+<!-- 帳號編輯 modal -->
+<div class="modal-mask" id="acc-edit-modal">
+  <div class="modal" style="width:560px">
+    <div class="modal-head">
+      <div class="modal-title">✏️ 編輯客戶資料</div>
+      <button class="modal-close" onclick="document.getElementById('acc-edit-modal').classList.remove('show')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="acc-edit-id">
+      <div class="form-grid">
+        <div class="form-row">
+          <label>客戶名稱 <span style="color:#EE4D2D">*</span></label>
+          <input type="text" id="acc-edit-name" placeholder="例：王老闆 (A 食品行)">
+        </div>
+        <div class="form-row">
+          <label>店家 ID（多個用逗號分隔）</label>
+          <input type="text" id="acc-edit-shops" placeholder="例：shop001, shop002">
+        </div>
+        <div class="form-row">
+          <label>月服務費（NT$）</label>
+          <input type="number" id="acc-edit-fee" min="0" step="500">
+        </div>
+        <div class="form-row">
+          <label>目標 ROAS</label>
+          <input type="number" id="acc-edit-roas" min="0.1" step="0.1">
+        </div>
+        <div class="form-row">
+          <label>目標 ACoS（%）</label>
+          <input type="number" id="acc-edit-acos" min="1" step="1">
+        </div>
+        <div class="form-row">
+          <label>結算日（每月幾號）</label>
+          <input type="number" id="acc-edit-settle" min="1" max="28" step="1">
+        </div>
+        <div class="form-row">
+          <label>合約開始日</label>
+          <input type="date" id="acc-edit-start">
+        </div>
+        <div class="form-row">
+          <label>合約結束日</label>
+          <input type="date" id="acc-edit-end">
+        </div>
+        <div class="form-row">
+          <label>聯絡方式（電話）</label>
+          <input type="text" id="acc-edit-contact" placeholder="例：0912-345-678">
+        </div>
+        <div class="form-row">
+          <label>Email</label>
+          <input type="email" id="acc-edit-email" placeholder="例：client@example.com">
+        </div>
+      </div>
+      <div id="acc-edit-msg" style="color:#DC2626;font-size:13px;margin-top:8px"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="document.getElementById('acc-edit-modal').classList.remove('show')">取消</button>
+      <button class="btn btn-primary" id="acc-edit-save" onclick="saveAccEdit()">儲存</button>
+    </div>
+  </div>
+</div>
+
 <!-- 出價/預算調整 modal -->
 <div class="modal-mask" id="adjust-modal">
   <div class="modal">
@@ -1934,22 +2006,105 @@ document.querySelectorAll('#period-seg button').forEach(b => {
 });
 
 /* ────────── 帳號表 ────────── */
+// 暫存帳號資料供編輯用
+let _accItems = [];
+
 async function loadAccounts() {
   try {
     const r = await api.getAccounts();
-    document.getElementById('acc-tbody').innerHTML = r.items.map(a => `
-      <tr>
+    _accItems = r.items || [];
+    document.getElementById('acc-tbody').innerHTML = _accItems.map(a => `
+      <tr id="acc-row-${a.customer_id || a.id}">
         <td><span class="badge ${a.type==='own'?'badge-own':'badge-client'}">${a.type==='own'?'自有':'客戶'}</span></td>
-        <td>${a.name}</td>
+        <td>${a.customer_name || a.name}</td>
         <td class="num">${fmt$(a.spend)}</td>
         <td class="num">${fmt$(a.revenue)}</td>
-        <td class="num ${roasClass(a.roas)}">${roasIcon(a.roas)} ${a.roas.toFixed(2)}</td>
-        <td class="num">${a.budget_used}%</td>
+        <td class="num ${roasClass(a.roas)}">${roasIcon(a.roas)} ${(a.roas||0).toFixed(2)}</td>
+        <td class="num">${a.budget_used != null ? a.budget_used + '%' : '-'}</td>
         <td class="num">每月 ${a.settle_day} 日</td>
-        <td>${a.status==='warn'?'⚠ 警示':'投放中'}</td>
+        <td>${a.status==='warn'?'⚠ 警示':a.status==='danger'?'🔴 危險':'投放中'}</td>
+        <td class="acc-actions" id="acc-act-${a.customer_id || a.id}">
+          ${a.customer_id ? `
+            <button class="btn btn-sm" onclick="openAccEdit('${a.customer_id}')">✏️ 編輯</button>
+            <button class="btn btn-sm btn-danger-ghost" onclick="confirmAccDelete('${a.customer_id}','${(a.customer_name||a.name).replace(/'/g,"\\'")}')">🗑 刪除</button>
+          ` : '<span style="color:var(--text-muted);font-size:12px">—</span>'}
+        </td>
       </tr>`).join('');
   } catch (e) {
     showError('acc-tbody', `載入帳號失敗：${e.message}`);
+  }
+}
+
+/* 開啟編輯 modal */
+function openAccEdit(cid) {
+  const a = _accItems.find(x => x.customer_id === cid);
+  if (!a) return;
+  document.getElementById('acc-edit-id').value      = cid;
+  document.getElementById('acc-edit-name').value    = a.customer_name || '';
+  document.getElementById('acc-edit-shops').value   = (a.shop_ids || [a.id]).join(', ');
+  document.getElementById('acc-edit-fee').value     = a.monthly_fee || 0;
+  document.getElementById('acc-edit-roas').value    = a.target_roas || 3.0;
+  document.getElementById('acc-edit-acos').value    = a.target_acos || 30;
+  document.getElementById('acc-edit-settle').value  = a.settle_day || 25;
+  document.getElementById('acc-edit-start').value   = a.contract_start || '';
+  document.getElementById('acc-edit-end').value     = a.contract_end || '';
+  document.getElementById('acc-edit-contact').value = a.contact || '';
+  document.getElementById('acc-edit-email').value   = a.email || '';
+  document.getElementById('acc-edit-msg').textContent = '';
+  document.getElementById('acc-edit-modal').classList.add('show');
+}
+
+/* 儲存編輯 */
+async function saveAccEdit() {
+  const cid     = document.getElementById('acc-edit-id').value;
+  const saveBtn = document.getElementById('acc-edit-save');
+  const msg     = document.getElementById('acc-edit-msg');
+  const shopRaw = document.getElementById('acc-edit-shops').value;
+  const body = {
+    name:           document.getElementById('acc-edit-name').value.trim(),
+    shop_ids:       shopRaw.split(',').map(s => s.trim()).filter(Boolean),
+    monthly_fee:    parseFloat(document.getElementById('acc-edit-fee').value) || 0,
+    target_roas:    parseFloat(document.getElementById('acc-edit-roas').value) || 3.0,
+    target_acos:    parseFloat(document.getElementById('acc-edit-acos').value) || 30,
+    settle_day:     parseInt(document.getElementById('acc-edit-settle').value) || 25,
+    contract_start: document.getElementById('acc-edit-start').value,
+    contract_end:   document.getElementById('acc-edit-end').value,
+    contact:        document.getElementById('acc-edit-contact').value.trim(),
+    email:          document.getElementById('acc-edit-email').value.trim(),
+    line_id:        '',
+  };
+  if (!body.name) { msg.textContent = '客戶名稱不能空白'; return; }
+  saveBtn.disabled = true;
+  saveBtn.textContent = '儲存中…';
+  try {
+    await api.updateCustomer(cid, body);
+    document.getElementById('acc-edit-modal').classList.remove('show');
+    loadAccounts();
+  } catch(e) {
+    msg.textContent = `儲存失敗：${e.message}`;
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = '儲存';
+  }
+}
+
+/* 行內刪除確認 */
+function confirmAccDelete(cid, name) {
+  const cell = document.getElementById(`acc-act-${cid}`);
+  if (!cell) return;
+  cell.innerHTML = `
+    <span style="font-size:12px;color:#DC2626">確定刪除「${name}」？</span>
+    <button class="btn btn-sm btn-danger" onclick="doAccDelete('${cid}')">確認</button>
+    <button class="btn btn-sm" onclick="loadAccounts()">取消</button>`;
+}
+
+async function doAccDelete(cid) {
+  try {
+    await api.removeCustomer(cid);
+    loadAccounts();
+  } catch(e) {
+    const cell = document.getElementById(`acc-act-${cid}`);
+    if (cell) cell.innerHTML = `<span style="color:#DC2626;font-size:12px">刪除失敗：${e.message}</span>`;
   }
 }
 
