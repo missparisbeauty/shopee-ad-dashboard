@@ -32,8 +32,11 @@ google_trends_cache.json
 *.broken
 *.tmp
 
-# 暫存檔
+# 暫存檔 / 廣告原始數據（含客戶資料，不上 git）
 sample_ad_report.csv
+蝦皮廣告-*.csv
+蝦皮-*.csv
+ad_report_*.csv
 uploads/
 watch/*/processed/
 watch/*/failed/
