@@ -308,15 +308,21 @@ def aggregate_products(shop: str | None = None, period: str = "month", limit: in
     if not rows:
         # 沒有日級資料，改用彙總報表的商品行（不做日期過濾，因為日期是期間終點）
         rows = _filter(_overall_any(all_rows), shop, None)
+    _PID_INVALID = {"-", "—", "N/A", "n/a", "null", ""}
     bucket: dict[str, dict] = {}
     for r in rows:
-        pid = r.get("product_id") or r.get("product_name")
-        # 過濾掉「-」「N/A」這種蝦皮報表的 placeholder
-        if not pid or pid in ("-", "—", "N/A", "n/a", "null"):
+        raw_pid = r.get("product_id") or ""
+        pid = raw_pid if raw_pid and raw_pid not in _PID_INVALID else None
+        # product_id 無效（廣告活動層級如 Shop GMV Max）→ 改用廣告名稱當 key
+        if not pid:
+            pid = r.get("campaign_name") or r.get("product_name")
+        if not pid or pid in _PID_INVALID:
             continue
+        # 顯示名稱：優先 product_name；無 product_name 時用 campaign_name（即 pid 本身）
+        pname = r.get("product_name") or r.get("campaign_name") or pid
         b = bucket.setdefault(pid, {
             "product_id": pid,
-            "product_name": r.get("product_name") or pid,
+            "product_name": pname,
             "spend": 0.0, "revenue": 0.0,
             "clicks": 0, "impressions": 0, "orders": 0,
         })
@@ -715,14 +721,19 @@ def aggregate_product_sales(shop: str | None = None, days: int = 30) -> dict[str
                 rows.append(r)
         except ValueError:
             continue
+    _PID_INVALID2 = {"-", "—", "N/A", "n/a", "null", ""}
     bucket: dict[str, dict] = {}
     for r in rows:
-        pid = r.get("product_id")
-        if not pid or pid in ("-", "—", "N/A", "n/a", "null"):
+        raw_pid = r.get("product_id") or ""
+        pid = raw_pid if raw_pid and raw_pid not in _PID_INVALID2 else None
+        if not pid:
+            pid = r.get("campaign_name") or r.get("product_name")
+        if not pid or pid in _PID_INVALID2:
             continue
+        pname = r.get("product_name") or r.get("campaign_name") or pid
         b = bucket.setdefault(pid, {
             "product_id": pid,
-            "product_name": r.get("product_name") or pid,
+            "product_name": pname,
             "shop": r.get("shop"),
             "spend": 0.0, "revenue": 0.0,
             "clicks": 0, "impressions": 0, "orders": 0, "units_sold": 0,

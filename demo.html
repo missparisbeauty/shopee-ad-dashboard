@@ -2309,7 +2309,7 @@ async function loadRising() {
     const r = await api.getRising();
     document.getElementById('rising-tbody').innerHTML = r.items.map(p => `
       <tr>
-        <td><span class="badge ${p.shop.startsWith('自家')?'badge-own':'badge-client'}">${p.shop}</span></td>
+        <td><span class="badge badge-client">${escHtml(p.shop || '—')}</span></td>
         <td>${p.product}</td>
         <td>${sparkline(p.clicks)} ${deltaTxt(p.clicks_delta)}</td>
         <td>${deltaTxt(p.cart_delta)}</td>
@@ -3485,7 +3485,7 @@ async function loadHealth() {
       const recIcon = {'強投':'🟢','正常':'⚪','減投':'🟡','停投':'🔴'}[p.recommendation];
       return `<tr>
         <td><strong>${p.name}</strong></td>
-        <td><span class="badge ${p.shop.startsWith('自家')?'badge-own':'badge-client'}">${p.shop}</span></td>
+        <td><span class="badge badge-client">${escHtml(p.shop || '—')}</span></td>
         <td class="num" style="${estStyle}" title="系統推估，僅供參考">~${p.rating}</td>
         <td class="num" style="${estStyle}" title="系統推估，僅供參考">~${p.reviews}</td>
         <td class="num" style="${estStyle}" title="系統推估，僅供參考">~${p.stock}</td>
