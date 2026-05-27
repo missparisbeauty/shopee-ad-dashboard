@@ -523,6 +523,40 @@
     outline:none; border-color:var(--accent);
   }
   .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  /* ── Hub Tab 列 ── */
+  .hub-tabbar {
+    display: flex;
+    gap: 4px;
+    padding: 12px 24px 0;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 4px;
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .hub-tab {
+    padding: 8px 18px;
+    font-size: 13px;
+    font-weight: 500;
+    border: none;
+    border-radius: 6px 6px 0 0;
+    cursor: pointer;
+    background: none;
+    color: var(--text-secondary);
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .hub-tab:hover { color: var(--text-primary); background: var(--surface2); }
+  .hub-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    background: none;
+  }
+  /* dashboard 的第二個 section（帳號總表）上方加分隔 */
+  #page-accounts.active { border-top: 1px solid var(--border); margin-top: 8px; padding-top: 8px; }
+
   /* ── 帳號表操作按鈕 ── */
   .acc-actions { white-space:nowrap; }
   .btn-sm { padding:4px 10px; font-size:12px; }
@@ -630,28 +664,12 @@
 <aside class="sidebar">
   <h1>🛒 蝦皮代操</h1>
   <ul class="nav">
-    <div class="section-label">總覽</div>
-    <li class="active" data-page="kpi">KPI + 真實獲利</li>
-    <li data-page="accounts">帳號總表</li>
-    <li data-page="hours">高效時段</li>
-    <li data-page="calendar">活動行事曆</li>
-
-    <div class="section-label">優化工具</div>
-    <li data-page="ai">AI 調整建議</li>
-    <li data-page="products">商品優化追蹤</li>
-    <li data-page="health">商品健康度</li>
-    <li data-page="rules">預算與自動規則</li>
-
-    <div class="section-label">流量策略</div>
-    <li data-page="keywords">關鍵字研究</li>
-    <li data-page="audience">受眾 + 素材</li>
-    <li data-page="competitor">競品監控</li>
-
-    <div class="section-label">客戶與運營</div>
-    <li data-page="customers">客戶 CRM + 月報</li>
-    <li data-page="team">團隊 + LINE 通知</li>
-    <li data-page="multiplatform">跨平台整合</li>
-    <li data-page="settings">整合與設定</li>
+    <li class="active" data-hub="dashboard">📊 今日狀況</li>
+    <li data-hub="products">📦 商品分析</li>
+    <li data-hub="ai-rules">🤖 AI + 規則</li>
+    <li data-hub="customers">👥 客戶 + 月報</li>
+    <li data-hub="settings">⚙️ 上傳 + 設定</li>
+    <li data-hub="advanced">🗂 進階工具</li>
   </ul>
 </aside>
 
@@ -669,7 +687,7 @@
   </div>
 
   <!-- Page 1: KPI -->
-  <section class="page active" id="page-kpi">
+  <section class="page active" id="page-kpi" data-hub="dashboard" data-tab-label="KPI 總覽">
     <div class="page-header">
       <div>
         <div class="page-title">KPI 總覽</div>
@@ -760,7 +778,7 @@
   </section>
 
   <!-- Page 2: Accounts -->
-  <section class="page" id="page-accounts">
+  <section class="page" id="page-accounts" data-hub="dashboard" data-tab-label="帳號總表">
     <div class="page-header">
       <div>
         <div class="page-title">帳號總表</div>
@@ -782,7 +800,7 @@
   </section>
 
   <!-- Page 3: Hours -->
-  <section class="page" id="page-hours">
+  <section class="page" id="page-hours" data-hub="advanced" data-tab-label="高效時段">
     <div class="page-header">
       <div>
         <div class="page-title">高效星期分析 <span style="font-size:11px;background:#16A34A;color:#fff;padding:2px 8px;border-radius:8px;margin-left:6px">● 真實 CSV</span></div>
@@ -812,7 +830,7 @@
   </section>
 
   <!-- Page 4: Calendar -->
-  <section class="page" id="page-calendar">
+  <section class="page" id="page-calendar" data-hub="advanced" data-tab-label="活動行事曆">
     <div class="page-header">
       <div>
         <div class="page-title">蝦皮活動行事曆</div>
@@ -825,7 +843,7 @@
   </section>
 
   <!-- Page 5: AI -->
-  <section class="page" id="page-ai">
+  <section class="page" id="page-ai" data-hub="ai-rules" data-tab-label="AI 調整建議">
     <div class="page-header">
       <div>
         <div class="page-title">AI 調整建議</div>
@@ -847,7 +865,7 @@
   </section>
 
   <!-- Page: Product Optimization -->
-  <section class="page" id="page-products">
+  <section class="page" id="page-products" data-hub="products" data-tab-label="商品優化">
     <div class="page-header">
       <div>
         <div class="page-title">商品優化追蹤</div>
@@ -911,7 +929,7 @@
   </section>
 
   <!-- Page 6: Competitor -->
-  <section class="page" id="page-competitor">
+  <section class="page" id="page-competitor" data-hub="advanced" data-tab-label="競品監控">
     <div class="page-header">
       <div>
         <div class="page-title">競品監控</div>
@@ -970,7 +988,7 @@
   </section>
 
   <!-- Page: 商品健康度 -->
-  <section class="page" id="page-health">
+  <section class="page" id="page-health" data-hub="products" data-tab-label="商品健康度">
     <div class="page-header">
       <div>
         <div class="page-title">商品健康度評分</div>
@@ -1009,7 +1027,7 @@
   </section>
 
   <!-- Page: 預算與自動規則 -->
-  <section class="page" id="page-rules">
+  <section class="page" id="page-rules" data-hub="ai-rules" data-tab-label="預算 + 規則">
     <div class="page-header">
       <div>
         <div class="page-title">預算與自動規則</div>
@@ -1057,7 +1075,7 @@
   </section>
 
   <!-- Page: 關鍵字研究 -->
-  <section class="page" id="page-keywords">
+  <section class="page" id="page-keywords" data-hub="products" data-tab-label="關鍵字研究">
     <div class="page-header">
       <div>
         <div class="page-title">關鍵字研究</div>
@@ -1139,7 +1157,7 @@
   </section>
 
   <!-- Page: 受眾 + 素材 -->
-  <section class="page" id="page-audience">
+  <section class="page" id="page-audience" data-hub="advanced" data-tab-label="受眾素材">
     <div class="page-header">
       <div>
         <div class="page-title">受眾 + 素材</div>
@@ -1193,7 +1211,7 @@
   </section>
 
   <!-- Page: 客戶 CRM + 月報 -->
-  <section class="page" id="page-customers">
+  <section class="page" id="page-customers" data-hub="customers" data-tab-label="客戶 CRM + 月報">
     <div class="page-header">
       <div>
         <div class="page-title">客戶 CRM + 月報</div>
@@ -1220,7 +1238,7 @@
   </section>
 
   <!-- Page: 團隊 + LINE 通知 -->
-  <section class="page" id="page-team">
+  <section class="page" id="page-team" data-hub="settings" data-tab-label="團隊通知">
     <div class="page-header">
       <div>
         <div class="page-title">團隊 + LINE 通知</div>
@@ -1264,7 +1282,7 @@
   </section>
 
   <!-- Page: 跨平台 -->
-  <section class="page" id="page-multiplatform">
+  <section class="page" id="page-multiplatform" data-hub="advanced" data-tab-label="跨平台整合">
     <div class="page-header">
       <div>
         <div class="page-title">跨平台整合</div>
@@ -1282,7 +1300,7 @@
   </section>
 
   <!-- Page: 整合與設定 -->
-  <section class="page" id="page-settings">
+  <section class="page" id="page-settings" data-hub="settings" data-tab-label="整合與設定">
     <div class="page-header">
       <div>
         <div class="page-title">整合與設定</div>
@@ -1788,12 +1806,84 @@ function showError(elId, msg) {
 }
 
 /* ────────── 頁面切換 ────────── */
+/* ────────── Hub 導覽系統 ────────── */
+// 每個 hub 的組成：sections = section id 尾綴；stacked = 直接疊放不加 tab
+const HUB_CONFIG = {
+  'dashboard': { sections: ['kpi', 'accounts'], stacked: true },
+  'products':  { sections: ['health', 'products', 'keywords'] },
+  'ai-rules':  { sections: ['ai', 'rules'] },
+  'customers': { sections: ['customers'], stacked: true },
+  'settings':  { sections: ['settings', 'team'] },
+  'advanced':  { sections: ['hours', 'calendar', 'competitor', 'audience', 'multiplatform'] },
+};
+
+// 目前選中的 hub → tab mapping
+const _activeTab = {};
+
+function showHub(hubName) {
+  const cfg = HUB_CONFIG[hubName];
+  if (!cfg) return;
+
+  // 清除所有 active（含頁面 + nav）
+  document.querySelectorAll('.nav li').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(x => {
+    x.classList.remove('active');
+    // 移除上次插入的 tab 列（避免重複）
+    const old = x.querySelector('.hub-tabbar');
+    if (old) old.remove();
+  });
+
+  // 激活對應 nav item
+  document.querySelector(`.nav li[data-hub="${hubName}"]`)?.classList.add('active');
+
+  if (cfg.stacked) {
+    // stacked 模式：所有 section 直接全顯示（第一個不加 padding-top）
+    cfg.sections.forEach((sid, i) => {
+      const el = document.getElementById('page-' + sid);
+      if (el) el.classList.add('active');
+    });
+  } else {
+    // tab 模式：預設顯示第一個 tab
+    const activeSection = _activeTab[hubName] || cfg.sections[0];
+    showHubTab(hubName, activeSection);
+  }
+}
+
+function showHubTab(hubName, targetSid) {
+  const cfg = HUB_CONFIG[hubName];
+  if (!cfg) return;
+  _activeTab[hubName] = targetSid;
+
+  // 先隱藏同 hub 的所有 section
+  cfg.sections.forEach(sid => {
+    const el = document.getElementById('page-' + sid);
+    if (el) el.classList.remove('active');
+  });
+
+  // 顯示目標 section
+  const target = document.getElementById('page-' + targetSid);
+  if (!target) return;
+  target.classList.add('active');
+
+  // 建立 tab 列（插在 section 最前面）
+  const labels = cfg.sections.map(sid => {
+    const el = document.getElementById('page-' + sid);
+    return { sid, label: el?.dataset.tabLabel || sid };
+  });
+  const tabbar = document.createElement('div');
+  tabbar.className = 'hub-tabbar';
+  tabbar.innerHTML = labels.map(({ sid, label }) =>
+    `<button class="hub-tab ${sid === targetSid ? 'active' : ''}"
+       onclick="showHubTab('${hubName}','${sid}')">${label}</button>`
+  ).join('');
+  target.insertBefore(tabbar, target.firstChild);
+}
+
+// Nav 點擊
 document.querySelectorAll('.nav li').forEach(li => {
   li.addEventListener('click', () => {
-    document.querySelectorAll('.nav li').forEach(x => x.classList.remove('active'));
-    document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
-    li.classList.add('active');
-    document.getElementById('page-' + li.dataset.page).classList.add('active');
+    const hub = li.dataset.hub;
+    if (hub) showHub(hub);
   });
 });
 
@@ -4197,6 +4287,11 @@ async function loadMultiPlatform() {
     }).join('');
   } catch (e) { showError('multi-tbody', '載入失敗：' + e.message); }
 }
+
+/* ────────── 啟動時顯示 dashboard hub ────────── */
+// 初始化：先把 kpi 的 active class 換成 hub 控制
+document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
+showHub('dashboard');
 
 /* ────────── 啟動所有 API 呼叫（並行） ────────── */
 Promise.all([
